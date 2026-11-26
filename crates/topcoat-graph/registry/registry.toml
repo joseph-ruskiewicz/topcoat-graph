@@ -35,3 +35,7 @@ dependencies = ["chart", "chart_axis", "chart_legend", "chart_tooltip"]
 [components.area_chart]
 source = "components/area_chart.rs"
 dependencies = ["chart", "chart_axis", "chart_legend", "chart_tooltip"]
+
+[components.pie_chart]
+source = "components/pie_chart.rs"
+dependencies = ["chart", "chart_legend", "chart_tooltip"]

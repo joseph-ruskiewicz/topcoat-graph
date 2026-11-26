@@ -35,3 +35,7 @@ file = "src/components/chart_tooltip.rs"
 [registries.topcoat-graph.components.line_chart]
 hash = "sha256:2ad661a0e5bf749772e1b16bf21a17aeb92c45241c219d92f63c5c2b1f239d5d"
 file = "src/components/line_chart.rs"
+
+[registries.topcoat-graph.components.pie_chart]
+hash = "sha256:298a76ed5c91f623eef26cc36217b449a9182e16619d19ef2d4e23b8f0a88382"
+file = "src/components/pie_chart.rs"

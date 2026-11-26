@@ -8,6 +8,7 @@ mod components;
 mod area;
 mod bar;
 mod line;
+mod pie;
 mod shell;
 
 #[cfg(test)]

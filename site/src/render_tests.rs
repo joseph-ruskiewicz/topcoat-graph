@@ -405,3 +405,125 @@ async fn an_empty_area_chart_keeps_its_frame() {
     assert_eq!(parts(chart, "tick"), 2);
     assert_eq!(parts(chart, "hit-band"), 0);
 }
+
+/// The tooltips in `html`, each from its marker to the end of the markup.
+fn tooltips(html: &str) -> Vec<&str> {
+    html.split(r#"data-chart="tooltip""#).skip(1).collect()
+}
+
+#[tokio::test]
+async fn a_pie_draws_one_slice_per_value_in_a_square() {
+    let html = get("/pie").await;
+    assert!(!html.contains("NaN"));
+    let chart = figure(&html, "Cards by type");
+    assert!(chart.contains(r#"viewBox="0 0 100 100""#));
+    assert!(!chart.contains("preserveAspectRatio"));
+    // The slices are focusable, so the drawing they are in is not hidden.
+    let svg = &chart[chart.find("<svg").unwrap()..];
+    assert!(!svg[..svg.find('>').unwrap()].contains("aria-hidden"));
+    let slices = paths(chart, "slice");
+    assert_eq!(slices.len(), 3);
+    assert!(chart.contains(r#"fill-rule="evenodd""#));
+    for color in ["var(--chart-1,", "var(--chart-2,", "var(--chart-3,"] {
+        assert!(chart.contains(color), "{color}");
+    }
+    assert_eq!(parts(chart, "legend"), 0);
+}
+
+#[tokio::test]
+async fn a_single_slice_fills_the_whole_circle() {
+    let html = get("/pie").await;
+    let chart = figure(&html, "Cards by rarity");
+    let slices = paths(chart, "slice");
+    assert_eq!(slices.len(), 1);
+    assert_eq!(slices[0].matches('A').count(), 2, "{}", slices[0]);
+}
+
+#[tokio::test]
+async fn an_all_zero_pie_draws_no_slices_but_keeps_its_table() {
+    let html = get("/pie").await;
+    let chart = figure(&html, "No games played");
+    assert!(chart.contains("<svg"));
+    assert_eq!(parts(chart, "slice"), 0);
+    assert_eq!(parts(chart, "tooltip"), 0);
+    assert_eq!(chart.matches(r#"tabindex="0""#).count(), 0);
+    assert!(chart.contains(r#"<table class="sr-only">"#));
+    assert!(
+        chart.contains(r#"<th scope="row">Wins</th><td>0</td>"#),
+        "{chart}"
+    );
+}
+
+#[tokio::test]
+async fn a_donut_shows_its_center_content() {
+    let html = get("/pie").await;
+    let chart = figure(&html, "Games by result");
+    assert_eq!(paths(chart, "slice").len(), 3);
+    assert_eq!(parts(chart, "center"), 1);
+    assert!(chart.contains("32"), "{chart}");
+    assert!(chart.contains("games"), "{chart}");
+    // A plain pie has no center, even though it is given none.
+    assert_eq!(parts(figure(&html, "Cards by type"), "center"), 0);
+}
+
+#[tokio::test]
+async fn a_pie_carries_its_data_as_a_hidden_table() {
+    let html = get("/pie").await;
+    let chart = figure(&html, "Cards by type");
+    assert!(chart.contains(r#"<table class="sr-only">"#));
+    assert!(chart.contains(r#"<th scope="col">Type</th>"#));
+    assert!(chart.contains(r#"<th scope="col">Cards</th>"#));
+    assert!(
+        chart.contains(r#"<th scope="row">Minions</th><td>18</td>"#),
+        "{chart}"
+    );
+    assert_eq!(chart.matches("<tr>").count(), 4);
+}
+
+#[tokio::test]
+async fn each_drawn_slice_has_a_hidden_tooltip_with_its_share() {
+    let html = get("/pie").await;
+    let chart = figure(&html, "Cards by type");
+    let tips = tooltips(chart);
+    assert_eq!(tips.len(), 3);
+    for tip in &tips {
+        let tag = &tip[..tip.find('>').unwrap()];
+        assert!(tag.contains("hidden"), "visible before hover: {tag}");
+    }
+    // Minions: 18 of 32 cards.
+    assert!(tips[0].contains("Minions"), "{}", tips[0]);
+    assert!(
+        tips[0].contains("18") && tips[0].contains("56.25%"),
+        "{}",
+        tips[0]
+    );
+}
+
+#[tokio::test]
+async fn each_slice_can_be_hovered_or_focused() {
+    let html = get("/pie").await;
+    let chart = figure(&html, "Cards by type");
+    assert_eq!(chart.matches(r#"tabindex="0""#).count(), 3);
+    assert_eq!(chart.matches("aria-describedby=").count(), 3);
+    assert!(chart.contains(r#"aria-label="Artifacts""#));
+}
+
+#[tokio::test]
+async fn a_zero_slice_is_skipped_but_listed_and_keeps_the_colors_in_place() {
+    let html = get("/pie").await;
+    let chart = figure(&html, "Cards by element");
+    assert_eq!(paths(chart, "slice").len(), 3);
+    assert_eq!(tooltips(chart).len(), 3);
+    // Fire comes after the empty Earth slice and keeps the fourth color.
+    let at = chart.find(r#"aria-label="Fire""#).unwrap();
+    let start = chart[..at].rfind("<path").unwrap();
+    let fire = &chart[start..at + chart[at..].find('>').unwrap()];
+    assert!(fire.contains("var(--chart-4,"), "{fire}");
+    // The legend and the table still list every slice.
+    assert_eq!(parts(chart, "legend"), 1);
+    assert_eq!(parts(chart, "legend-item"), 4);
+    assert!(
+        chart.contains(r#"<th scope="row">Earth</th><td>0</td>"#),
+        "{chart}"
+    );
+}
