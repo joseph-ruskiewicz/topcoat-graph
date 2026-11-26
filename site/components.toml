@@ -9,15 +9,15 @@ hash = "sha256:5e370e648fef95d78c8b048d99be7f7d79fd82132f8c9cc1ce854d3b73024137"
 file = "styles.css"
 
 [registries.topcoat-graph.components.area_chart]
-hash = "sha256:53cc09ffef827a32b7377c50c51e6a71f9e3380d52a1594a29bca83afaa386f1"
+hash = "sha256:6efc606d851268822bedf4730b17162b50cef0f989255c883ba45aaa5988e3d9"
 file = "src/components/area_chart.rs"
 
 [registries.topcoat-graph.components.bar_chart]
-hash = "sha256:b2cc1bed7ecca534a2d94d0ea00e7f172d0dbf609cca0084836b0682b298c2e7"
+hash = "sha256:962f2cd6a312ca450aace931553f7f65f924542abcd3652c6bb89107c927262c"
 file = "src/components/bar_chart.rs"
 
 [registries.topcoat-graph.components.chart]
-hash = "sha256:2b1b54649d61f2ebcaca86e84617a1399b9379f0dac63da22e7328b57fe22b6e"
+hash = "sha256:58c0d2186035616a9d3b36ffe288a84e0187ab9b4895fa711ac9d3eb31e25974"
 file = "src/components/chart.rs"
 
 [registries.topcoat-graph.components.chart_axis]
@@ -29,13 +29,13 @@ hash = "sha256:821ed11cd9dfb58a050334a93e29c8e01f1765c3572a0f4779983adb45bcffd0"
 file = "src/components/chart_legend.rs"
 
 [registries.topcoat-graph.components.chart_tooltip]
-hash = "sha256:16760bc0c510a6cabd319da1b37a277c0cf265fbc20a59b5ba5e6249229fbf59"
+hash = "sha256:d140baadbc593d02c6dbacb89d1ad526268eb0d0f61e7a5c9440b2ff883bc3f8"
 file = "src/components/chart_tooltip.rs"
 
 [registries.topcoat-graph.components.line_chart]
-hash = "sha256:2ad661a0e5bf749772e1b16bf21a17aeb92c45241c219d92f63c5c2b1f239d5d"
+hash = "sha256:cf2b6984198e69dc53404247d22738c0b82abb40fdc789a76134aa0cc8e4f730"
 file = "src/components/line_chart.rs"
 
 [registries.topcoat-graph.components.pie_chart]
-hash = "sha256:298a76ed5c91f623eef26cc36217b449a9182e16619d19ef2d4e23b8f0a88382"
+hash = "sha256:1f31765ca3514fa0bcca00c5b53dfac1ef74a3614e29430189937b8cd4676e6f"
 file = "src/components/pie_chart.rs"

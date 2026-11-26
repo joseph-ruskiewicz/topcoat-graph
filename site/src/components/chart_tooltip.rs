@@ -5,7 +5,9 @@ use topcoat::{
     view::{View, class, component, view},
 };
 
-use super::chart::percent;
+use topcoat_graph::{Band, Orientation, fmt::num};
+
+use super::chart::{ChartSeries, percent};
 
 /// One line of a tooltip: a series' color, name and value.
 #[derive(Clone, Debug)]
@@ -16,6 +18,48 @@ pub struct TooltipRow {
     pub value: String,
     /// The series' CSS color, for the swatch.
     pub color: String,
+}
+
+/// One category's tooltip: its title, its rows, and its anchor in the plot.
+pub type CategoryTooltip = (String, Vec<TooltipRow>, f64, f64);
+
+/// Builds the tooltip for each category of a bar, line or area chart.
+///
+/// A tooltip lists every series that has a value in its category, under the category's
+/// label. It is anchored at the edge of the category's band nearer the middle of the
+/// plot, so it opens beside the marks instead of over them.
+pub fn category_tooltips(
+    categories: &[String],
+    series: &[ChartSeries],
+    colors: &[String],
+    bands: &[Band],
+    orientation: Orientation,
+) -> Vec<CategoryTooltip> {
+    categories
+        .iter()
+        .zip(bands)
+        .enumerate()
+        .map(|(category, (title, band))| {
+            let rows = series
+                .iter()
+                .zip(colors)
+                .filter_map(|(one, color)| {
+                    let value = one.values.get(category).filter(|v| v.is_finite())?;
+                    Some(TooltipRow {
+                        name: one.name.clone(),
+                        value: num(*value),
+                        color: color.clone(),
+                    })
+                })
+                .collect();
+            let (x, y) = match orientation {
+                Orientation::Vertical if band.center <= 50.0 => (band.start + band.size, 50.0),
+                Orientation::Vertical => (band.start, 50.0),
+                Orientation::Horizontal => (50.0, band.center),
+            };
+            (title.clone(), rows, x, y)
+        })
+        .collect()
 }
 
 /// The panel that shows one category's values while it is hovered or focused.

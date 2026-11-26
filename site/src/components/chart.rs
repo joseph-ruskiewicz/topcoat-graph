@@ -79,7 +79,7 @@ pub fn percent(value: f64) -> String {
 ///
 /// The chart is as wide as its container and has a 16:9 shape by default. Set a
 /// different shape or a fixed height through `attrs`, for example
-/// `attributes! { class="aspect-auto h-64" }`.
+/// `attributes! { class="aspect-square" }` or `attributes! { class="aspect-auto h-64" }`.
 ///
 /// `attrs` are forwarded to the `<div>`. Extra classes are added to its classes.
 #[component]
@@ -100,7 +100,9 @@ pub async fn chart(
             role="figure"
             aria-label=(label)
             class=(class!(
-                "relative flex aspect-video w-full flex-col gap-2 text-xs text-muted-foreground",
+                "relative flex w-full flex-col gap-2 text-xs text-muted-foreground",
+                // The default shape has no specificity, so any class in `attrs` beats it.
+                "[:where(&)]:aspect-video",
                 CHART_VARS,
                 attrs.remove("class"),
             ))

@@ -61,9 +61,9 @@ struct DrawnSlice {
     centroid: (f64, f64),
 }
 
-/// The root's shape: square-ish and centered rather than stretched to 16:9. The `!`
-/// overrides the 16:9 default of [`chart`], which would otherwise win.
-const ROOT: StaticClass = class!("mx-auto max-w-72 aspect-auto!");
+/// The root's shape: centered and at most 18rem wide, with its height left to the
+/// square plot. The width limit has no specificity, so a class in `attrs` beats it.
+const ROOT: StaticClass = class!("mx-auto aspect-auto [:where(&)]:max-w-72");
 
 /// A slice: dimmed while another slice is hovered, outlined while it has keyboard focus.
 const SLICE: StaticClass = class!(
@@ -98,7 +98,7 @@ const SLICE: StaticClass = class!(
 ///
 /// The chart is square, as wide as its container up to 18rem, and centered. `attrs`
 /// are forwarded to the chart's root `<div>`. Extra classes are added to its classes;
-/// to change the width, pass one that overrides, such as `max-w-96!`.
+/// to change the width, pass a different limit, such as `max-w-96`.
 #[component]
 pub async fn pie_chart(
     cx: &Cx,

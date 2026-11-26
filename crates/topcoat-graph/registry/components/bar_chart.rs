@@ -10,7 +10,7 @@ use super::{
     chart::{ChartSeries, chart, chart_hit_bands, chart_table, series_color},
     chart_axis::{chart_category_axis, chart_grid, chart_value_axis},
     chart_legend::chart_legend,
-    chart_tooltip::{TooltipRow, chart_tooltip},
+    chart_tooltip::{category_tooltips, chart_tooltip},
 };
 
 /// The plot and its two axes: labels in a gutter on the left and a row underneath,
@@ -98,41 +98,7 @@ pub async fn bar_chart(
     let tooltip_ids: Vec<String> = (0..categories.len())
         .map(|index| format!("{tooltip_base}-{index}"))
         .collect();
-    // Each category's tooltip: every series with a value there, anchored beside the
-    // category's bars so it does not cover them.
-    let tooltips: Vec<(String, Vec<TooltipRow>, f64, f64)> = categories
-        .iter()
-        .zip(&layout.bands)
-        .enumerate()
-        .map(|(category, (title, band))| {
-            let rows = series
-                .iter()
-                .zip(&colors)
-                .filter_map(|(one, color)| {
-                    let value = one.values.get(category).filter(|v| v.is_finite())?;
-                    Some(TooltipRow {
-                        name: one.name.clone(),
-                        value: num(*value),
-                        color: color.clone(),
-                    })
-                })
-                .collect();
-            let left_half = band.center <= 50.0;
-            let (x, y) = if vertical {
-                (
-                    if left_half {
-                        band.start + band.size
-                    } else {
-                        band.start
-                    },
-                    50.0,
-                )
-            } else {
-                (50.0, band.center)
-            };
-            (title.clone(), rows, x, y)
-        })
-        .collect();
+    let tooltips = category_tooltips(&categories, &series, &colors, &layout.bands, orientation);
 
     Ok(view! {
         chart(

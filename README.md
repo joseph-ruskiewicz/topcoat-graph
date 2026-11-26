@@ -131,7 +131,7 @@ chart's data table. Each `ChartSeries` has a name and one value per category.
 - `attrs` sets attributes on the chart's root element. A chart is as wide as its container
   with a 16:9 shape by default. For a fixed height, pass
   `attrs: attributes! { class="aspect-auto h-64" }`. A pie chart is square, centered and at
-  most 18rem wide. To change its width, pass a class that overrides, such as `max-w-96!`.
+  most 18rem wide. To change its width, pass a different limit, such as `max-w-96`.
 - A missing value is `f64::NAN` (any non-finite number). A bar chart leaves a gap, a line
   breaks around it, and the tooltip leaves it out.
 
