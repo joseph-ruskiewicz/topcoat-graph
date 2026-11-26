@@ -1,0 +1,3 @@
+# `topcoat fmt` pipes macro bodies through rustfmt, so the edition must be set here.
+edition = "2024"
+max_width = 100

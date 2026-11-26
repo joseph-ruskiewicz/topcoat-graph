@@ -1,0 +1,21 @@
+[package]
+name = "topcoat-graph"
+description = "Charts for Topcoat: line, bar, area and pie, installed with `topcoat ui add --registry topcoat-graph`."
+keywords = ["topcoat", "ui", "chart", "svg", "components"]
+categories = ["web-programming", "visualization"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+rust-version.workspace = true
+
+# Declares this crate as a topcoat-ui component registry: `topcoat ui` reads
+# `registry/registry.toml` and the component sources it names. Those sources are
+# copied into an app by `topcoat ui add` and compiled there. The crate's own code
+# (`src/`) is the chart geometry the components call.
+[package.metadata.topcoat-ui]
+registry = "registry"
+
+[lints.rust]
+unsafe_code = "forbid"
