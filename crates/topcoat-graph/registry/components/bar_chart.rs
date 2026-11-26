@@ -9,6 +9,7 @@ use topcoat_graph::{BarMode, BarOptions, Orientation, bar_layout, fmt::num};
 use super::{
     chart::{ChartSeries, chart, chart_hit_bands, chart_table, series_color},
     chart_axis::{chart_category_axis, chart_grid, chart_value_axis},
+    chart_legend::chart_legend,
     chart_tooltip::{TooltipRow, chart_tooltip},
 };
 
@@ -64,6 +65,9 @@ pub async fn bar_chart(
     /// Show one category label in this many. See [`chart_category_axis`].
     #[default(1)]
     label_every: usize,
+    /// Show each series' name and color under the plot.
+    #[default]
+    legend: bool,
     /// Extra attributes for the chart's root `<div>` element.
     #[default]
     attrs: Attributes,
@@ -81,6 +85,11 @@ pub async fn bar_chart(
         .iter()
         .enumerate()
         .map(|(index, one)| series_color(index, one.color.as_deref()))
+        .collect();
+    let legend_items: Vec<(String, String)> = series
+        .iter()
+        .zip(&colors)
+        .map(|(one, color)| (one.name.clone(), color.clone()))
         .collect();
 
     // The hovered category. The browser owns this value, so it is only compared.
@@ -196,6 +205,9 @@ pub async fn bar_chart(
                     chart_value_axis(ticks: layout.ticks, orientation: orientation)
                 }
             </div>
+            if legend {
+                chart_legend(items: legend_items)
+            }
             chart_table(
                 label: label,
                 category_header: category_header,

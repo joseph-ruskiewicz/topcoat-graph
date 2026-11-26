@@ -204,3 +204,204 @@ async fn an_empty_chart_has_nothing_to_hover() {
     assert_eq!(parts(chart, "hit-band"), 0);
     assert_eq!(parts(chart, "tooltip"), 0);
 }
+
+/// The `d` attribute of every element in `html` marked `data-chart="<part>"`.
+fn paths<'a>(html: &'a str, part: &str) -> Vec<&'a str> {
+    html.split(&format!(r#"data-chart="{part}""#))
+        .skip(1)
+        .map(|rest| {
+            let tag = &rest[..rest.find('>').unwrap()];
+            let d = &tag[tag
+                .find(r#"d=""#)
+                .unwrap_or_else(|| panic!("no d in {tag}"))
+                + 3..];
+            &d[..d.find('"').unwrap()]
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn a_bar_chart_can_show_a_legend() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Revenue and costs by quarter");
+    assert_eq!(parts(chart, "legend"), 1);
+    assert_eq!(parts(chart, "legend-item"), 2);
+    let plain = figure(&html, "Mana cost distribution");
+    assert_eq!(parts(plain, "legend"), 0);
+}
+
+#[tokio::test]
+async fn a_line_chart_draws_a_stroked_line_per_series() {
+    let html = get("/line").await;
+    assert!(!html.contains("NaN"));
+    let chart = figure(&html, "Win rate by week");
+    assert!(chart.contains(r#"preserveAspectRatio="none""#));
+    let lines = paths(chart, "line");
+    assert_eq!(lines.len(), 1);
+    assert!(
+        lines[0].starts_with('M') && lines[0].contains('L'),
+        "{}",
+        lines[0]
+    );
+    assert!(chart.contains(r#"fill="none""#));
+    assert!(chart.contains(r#"vector-effect="non-scaling-stroke""#));
+    assert_eq!(parts(chart, "dot"), 0);
+    assert_eq!(parts(chart, "legend"), 0);
+}
+
+#[tokio::test]
+async fn a_multi_series_line_chart_names_its_series_in_a_legend() {
+    let html = get("/line").await;
+    let chart = figure(&html, "Games won and lost");
+    assert_eq!(paths(chart, "line").len(), 2);
+    assert_eq!(parts(chart, "legend"), 1);
+    assert_eq!(parts(chart, "legend-item"), 2);
+    let legend = &chart[chart.find(r#"data-chart="legend""#).unwrap()..];
+    assert!(legend.contains(">Wins<") && legend.contains(">Losses<"));
+    assert!(chart.contains("var(--chart-1,") && chart.contains("var(--chart-2,"));
+}
+
+#[tokio::test]
+async fn a_smooth_line_uses_curves() {
+    let html = get("/line").await;
+    let chart = figure(&html, "Rating over a season");
+    let lines = paths(chart, "line");
+    assert!(lines[0].contains('C'), "{}", lines[0]);
+}
+
+#[tokio::test]
+async fn a_missing_value_breaks_the_line() {
+    let html = get("/line").await;
+    let chart = figure(&html, "Wins per week, with a gap");
+    let lines = paths(chart, "line");
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0].matches('M').count(), 2, "{}", lines[0]);
+    // The gap's tooltip has no rows; its neighbours have one.
+    let tooltips: Vec<&str> = chart.split(r#"data-chart="tooltip""#).skip(1).collect();
+    assert_eq!(
+        tooltips[2].matches(r#"data-chart="tooltip-row""#).count(),
+        0
+    );
+    assert_eq!(
+        tooltips[1].matches(r#"data-chart="tooltip-row""#).count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn a_line_chart_can_mark_each_value_with_a_dot() {
+    let html = get("/line").await;
+    let chart = figure(&html, "Daily players");
+    // Six days, one without a value.
+    let dots = paths(chart, "dot");
+    assert_eq!(dots.len(), 5);
+    for dot in dots {
+        let (start, end) = dot.trim_start_matches('M').split_once('L').unwrap();
+        assert_eq!(start, end, "a dot is a zero-length stroke: {dot}");
+    }
+    assert!(chart.contains(r#"stroke-linecap="round""#));
+}
+
+#[tokio::test]
+async fn a_line_chart_has_a_tooltip_and_hit_band_per_category() {
+    let html = get("/line").await;
+    let chart = figure(&html, "Games won and lost");
+    assert_eq!(parts(chart, "hit-band"), 6);
+    assert_eq!(chart.matches(r#"tabindex="0""#).count(), 6);
+    assert_eq!(parts(chart, "tooltip"), 6);
+    let tooltips: Vec<&str> = chart.split(r#"data-chart="tooltip""#).skip(1).collect();
+    for tooltip in &tooltips {
+        let tag = &tooltip[..tooltip.find('>').unwrap()];
+        assert!(tag.contains("hidden"), "visible before hover: {tag}");
+        assert_eq!(tooltip.matches(r#"data-chart="tooltip-row""#).count(), 2);
+    }
+}
+
+#[tokio::test]
+async fn a_line_chart_carries_every_series_in_its_table() {
+    let html = get("/line").await;
+    let chart = figure(&html, "Games won and lost");
+    assert!(chart.contains(r#"<table class="sr-only">"#));
+    assert!(chart.contains(r#"<th scope="col">Week</th>"#));
+    assert!(chart.contains(r#"<th scope="col">Wins</th>"#));
+    assert!(chart.contains(r#"<th scope="col">Losses</th>"#));
+    assert_eq!(chart.matches("<tr>").count(), 7);
+}
+
+#[tokio::test]
+async fn an_empty_line_chart_keeps_its_frame() {
+    let html = get("/line").await;
+    let chart = figure(&html, "No games yet");
+    assert!(chart.contains("<svg"));
+    assert_eq!(chart.matches("<path").count(), 0);
+    assert_eq!(parts(chart, "tick"), 2);
+    assert_eq!(parts(chart, "hit-band"), 0);
+    assert_eq!(parts(chart, "tooltip"), 0);
+}
+
+#[tokio::test]
+async fn an_area_chart_fills_under_its_line() {
+    let html = get("/area").await;
+    assert!(!html.contains("NaN"));
+    let chart = figure(&html, "Cards drawn per turn");
+    assert!(chart.contains(r#"preserveAspectRatio="none""#));
+    let areas = paths(chart, "area");
+    let lines = paths(chart, "line");
+    assert_eq!((areas.len(), lines.len()), (1, 1));
+    assert!(
+        areas[0].starts_with('M') && areas[0].ends_with('Z'),
+        "{}",
+        areas[0]
+    );
+    assert!(!lines[0].is_empty());
+    // The axis starts at zero.
+    assert!(chart.contains(">0</span>"));
+}
+
+#[tokio::test]
+async fn a_multi_series_area_chart_names_its_series_in_a_legend() {
+    let html = get("/area").await;
+    let chart = figure(&html, "Mana spent and left over");
+    assert_eq!(paths(chart, "area").len(), 2);
+    assert_eq!(paths(chart, "line").len(), 2);
+    let legend = &chart[chart.find(r#"data-chart="legend""#).unwrap()..];
+    assert_eq!(parts(legend, "legend-item"), 2);
+    assert!(legend.contains(">Spent<") && legend.contains(">Left over<"));
+    assert_eq!(parts(chart, "hit-band"), 8);
+    assert_eq!(parts(chart, "tooltip"), 8);
+    assert!(chart.contains(r#"<th scope="col">Spent</th>"#));
+    assert!(chart.contains(r#"<th scope="col">Left over</th>"#));
+}
+
+#[tokio::test]
+async fn a_stacked_area_chart_draws_one_area_per_series() {
+    let html = get("/area").await;
+    let chart = figure(&html, "Cards in hand by type");
+    assert_eq!(paths(chart, "area").len(), 3);
+    assert_eq!(paths(chart, "line").len(), 3);
+    let tooltips: Vec<&str> = chart.split(r#"data-chart="tooltip""#).skip(1).collect();
+    assert_eq!(
+        tooltips[0].matches(r#"data-chart="tooltip-row""#).count(),
+        3
+    );
+}
+
+#[tokio::test]
+async fn an_area_with_a_missing_value_breaks_in_two() {
+    let html = get("/area").await;
+    let chart = figure(&html, "Cards drawn, with a gap");
+    let lines = paths(chart, "line");
+    assert_eq!(lines[0].matches('M').count(), 2, "{}", lines[0]);
+    let areas = paths(chart, "area");
+    assert_eq!(areas[0].matches('M').count(), 2, "{}", areas[0]);
+}
+
+#[tokio::test]
+async fn an_empty_area_chart_keeps_its_frame() {
+    let html = get("/area").await;
+    let chart = figure(&html, "No turns yet");
+    assert!(chart.contains("<svg"));
+    assert_eq!(chart.matches("<path").count(), 0);
+    assert_eq!(parts(chart, "tick"), 2);
+    assert_eq!(parts(chart, "hit-band"), 0);
+}

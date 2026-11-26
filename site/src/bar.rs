@@ -43,7 +43,7 @@ async fn bar(cx: &Cx) -> Result<impl View> {
         )
         example(
             title: "Grouped",
-            note: "Several series side by side in each category.",
+            note: "Several series side by side in each category, with a legend.",
             bar_chart(
                 label: "Revenue and costs by quarter",
                 category_header: "Quarter",
@@ -51,7 +51,8 @@ async fn bar(cx: &Cx) -> Result<impl View> {
                 series: vec![
                     ChartSeries::new("Revenue", [42.0, 58.0, 51.0, 73.0]),
                     ChartSeries::new("Costs", [30.0, 35.0, 41.0, 44.0]),
-                ]
+                ],
+                legend: true
             )
         )
         example(

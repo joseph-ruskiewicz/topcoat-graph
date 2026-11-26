@@ -5,7 +5,9 @@
 #[allow(dead_code)]
 mod components;
 
+mod area;
 mod bar;
+mod line;
 mod shell;
 
 #[cfg(test)]
