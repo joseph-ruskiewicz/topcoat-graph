@@ -1,0 +1,147 @@
+//! Renders the gallery's pages and checks the charts' markup.
+
+use topcoat::{
+    asset::{AssetCatalog, AssetConfig, MANIFEST_VERSION, Manifest, ManifestEntry, RawAsset},
+    router::{Body, Router, request::Request, to_bytes},
+};
+
+/// Builds the site's router, as `main` does. Tests have no asset bundle, so the router
+/// gets a catalog of the assets this binary references, as if they were hosted
+/// elsewhere; pages render their URLs without the files.
+fn site() -> Router {
+    let binary = std::fs::read(std::env::current_exe().unwrap()).unwrap();
+    let assets = RawAsset::find_in_binary(&binary)
+        .into_iter()
+        .enumerate()
+        .map(|(index, asset)| ManifestEntry {
+            id: asset.id(),
+            file: format!("asset-{index}"),
+            hash: String::new(),
+            content_type: "application/octet-stream".to_owned(),
+        })
+        .collect();
+    let catalog = AssetCatalog::from(Manifest {
+        version: MANIFEST_VERSION,
+        assets,
+    });
+    crate::router(AssetConfig::hosted_at("https://assets.invalid", catalog))
+}
+
+/// The HTML of the page at `path`.
+async fn get(path: &str) -> String {
+    let request = Request::builder().uri(path).body(Body::empty()).unwrap();
+    let response = site().handle(request).await;
+    assert_eq!(response.status(), 200, "GET {path}");
+    let bytes = to_bytes(response.into_body(), 8 * 1024 * 1024)
+        .await
+        .unwrap();
+    String::from_utf8(bytes.to_vec()).unwrap()
+}
+
+/// The markup of the chart named `label`: from its figure's tag to the next figure's.
+fn figure<'a>(html: &'a str, label: &str) -> &'a str {
+    let marker = format!(r#"aria-label="{label}""#);
+    let at = html
+        .find(&marker)
+        .unwrap_or_else(|| panic!("no chart labelled {label:?}"));
+    let start = html[..at].rfind("<div").unwrap();
+    let tag_end = at + html[at..].find('>').unwrap();
+    assert!(
+        html[start..tag_end].contains(r#"role="figure""#),
+        "{label:?} is not a figure"
+    );
+    let end = match html[tag_end..].find(r#"role="figure""#) {
+        Some(next) => html[..tag_end + next].rfind("<div").unwrap(),
+        None => html.len(),
+    };
+    &html[start..end]
+}
+
+/// How many elements in `html` carry the marker attribute `data-chart="<part>"`.
+fn parts(html: &str, part: &str) -> usize {
+    html.matches(&format!(r#"data-chart="{part}""#)).count()
+}
+
+#[tokio::test]
+async fn a_bar_chart_is_a_named_figure_with_a_stretched_plot() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Mana cost distribution");
+    assert!(chart.contains(r#"role="figure""#));
+    assert!(chart.contains(r#"viewBox="0 0 100 100""#));
+    assert!(chart.contains(r#"preserveAspectRatio="none""#));
+    assert!(chart.contains(r#"aria-hidden="true""#));
+    assert!(!html.contains("NaN"));
+}
+
+#[tokio::test]
+async fn a_bar_chart_draws_one_bar_per_nonzero_value() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Mana cost distribution");
+    assert_eq!(chart.matches("<rect").count(), 6, "{chart}");
+    // The tallest bar, 12 cards at cost 2, fills the plot's height.
+    assert!(
+        chart.contains(r#"y="0" width="11.43" height="100""#),
+        "{chart}"
+    );
+    let grouped = figure(&html, "Revenue and costs by quarter");
+    assert_eq!(grouped.matches("<rect").count(), 8, "{grouped}");
+    assert!(grouped.contains("var(--chart-1,") && grouped.contains("var(--chart-2,"));
+}
+
+#[tokio::test]
+async fn a_bar_chart_labels_its_axes() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Mana cost distribution");
+    assert_eq!(parts(chart, "tick"), 7);
+    for tick in ["0", "2", "4", "6", "8", "10", "12"] {
+        assert!(chart.contains(&format!(">{tick}</span>")), "tick {tick}");
+    }
+    assert_eq!(parts(chart, "category"), 7);
+    assert!(chart.contains(">6+</span>"));
+    assert_eq!(parts(chart, "grid-line"), 7);
+}
+
+#[tokio::test]
+async fn a_bar_chart_carries_its_data_as_a_hidden_table() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Mana cost distribution");
+    assert!(chart.contains(r#"<table class="sr-only">"#));
+    assert!(chart.contains(r#"<th scope="col">Cost</th>"#));
+    assert!(chart.contains(r#"<th scope="col">Cards</th>"#));
+    assert!(
+        chart.contains(r#"<th scope="row">2</th><td>12</td>"#),
+        "{chart}"
+    );
+    assert_eq!(chart.matches("<tr>").count(), 8);
+}
+
+#[tokio::test]
+async fn an_empty_bar_chart_keeps_its_frame() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "An empty deck");
+    assert_eq!(chart.matches("<rect").count(), 0);
+    assert!(chart.contains("<svg"));
+    assert_eq!(parts(chart, "tick"), 2);
+    assert_eq!(parts(chart, "category"), 0);
+}
+
+#[tokio::test]
+async fn a_crowded_axis_shows_every_nth_label() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Games played per day");
+    assert_eq!(chart.matches("<rect").count(), 30);
+    assert_eq!(parts(chart, "category"), 6);
+    assert!(chart.contains(">Day 1</span>") && chart.contains(">Day 6</span>"));
+    assert!(!chart.contains(">Day 2</span>"));
+    // Every category is still in the table.
+    assert!(chart.contains(r#"<th scope="row">Day 2</th>"#));
+}
+
+#[tokio::test]
+async fn a_horizontal_bar_chart_runs_its_categories_down_the_side() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Cards by element");
+    assert_eq!(chart.matches("<rect").count(), 5);
+    assert!(chart.contains(r#"x="0""#));
+    assert!(chart.contains(">No element</span>"));
+}

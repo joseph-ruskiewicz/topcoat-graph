@@ -1,0 +1,22 @@
+# The topcoat-graph component registry. Each component names its source file;
+# `topcoat ui` computes versions from the source. The registry's identity is its
+# crate name (`topcoat-graph`). It ships no theme: the components use the tokens of
+# the theme installed by `topcoat ui init`, plus `--chart-1` to `--chart-5` when the
+# theme defines them.
+#
+# The sources call the chart geometry in this crate (`topcoat_graph::...`), which an
+# app already depends on: `topcoat ui` only offers registries that are direct
+# dependencies.
+
+version = 1
+
+[components.chart]
+source = "components/chart.rs"
+
+[components.chart_axis]
+source = "components/chart_axis.rs"
+dependencies = ["chart"]
+
+[components.bar_chart]
+source = "components/bar_chart.rs"
+dependencies = ["chart", "chart_axis"]

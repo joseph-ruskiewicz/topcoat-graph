@@ -1,0 +1,21 @@
+# Topcoat UI install state. Managed by `topcoat ui`.
+version = 1
+components_dir = "src/components"
+
+[theme]
+name = "neutral"
+registry = "topcoat"
+hash = "sha256:5e370e648fef95d78c8b048d99be7f7d79fd82132f8c9cc1ce854d3b73024137"
+file = "styles.css"
+
+[registries.topcoat-graph.components.bar_chart]
+hash = "sha256:96790a3d25f4c977b38693124f6652d9d21c2f8f51eb0eef8c9185b4c1225abd"
+file = "src/components/bar_chart.rs"
+
+[registries.topcoat-graph.components.chart]
+hash = "sha256:810735090935ab060dea977f19a7bff127356afb62c4ef7b283c005dfe2b42ec"
+file = "src/components/chart.rs"
+
+[registries.topcoat-graph.components.chart_axis]
+hash = "sha256:b731ed545738eb9406fe575bb00deb6b0b6359d9630cb7498e5daabda5b9ea36"
+file = "src/components/chart_axis.rs"
