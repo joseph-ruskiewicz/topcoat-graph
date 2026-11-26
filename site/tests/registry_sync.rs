@@ -50,7 +50,7 @@ fn components_match_registry() {
         count += 1;
     }
 
-    assert_eq!(count, 3, "the registry should offer all 3 components");
+    assert_eq!(count, 4, "the registry should offer all 4 components");
 }
 
 #[test]

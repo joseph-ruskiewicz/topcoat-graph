@@ -145,3 +145,62 @@ async fn a_horizontal_bar_chart_runs_its_categories_down_the_side() {
     assert!(chart.contains(r#"x="0""#));
     assert!(chart.contains(">No element</span>"));
 }
+
+#[tokio::test]
+async fn each_category_has_a_hidden_tooltip_with_its_values() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Mana cost distribution");
+    assert_eq!(chart.matches(r#"role="tooltip""#).count(), 7);
+    let tooltips: Vec<&str> = chart.split(r#"data-chart="tooltip""#).skip(1).collect();
+    assert_eq!(tooltips.len(), 7);
+    for tooltip in &tooltips {
+        let tag = &tooltip[..tooltip.find('>').unwrap()];
+        assert!(
+            tag.contains("hidden"),
+            "a tooltip is visible before any hover: {tag}"
+        );
+    }
+    // The tooltip for cost 2 names the series and its value.
+    let two = tooltips[2];
+    let body = &two[..two.find("</div></div>").unwrap_or(two.len())];
+    assert!(body.contains("Cards") && body.contains(">12<"), "{body}");
+}
+
+#[tokio::test]
+async fn each_category_can_be_hovered_or_focused() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Mana cost distribution");
+    assert_eq!(parts(chart, "hit-band"), 7);
+    assert_eq!(chart.matches(r#"tabindex="0""#).count(), 7);
+    assert_eq!(chart.matches("aria-describedby=").count(), 7);
+    assert!(chart.contains(r#"aria-label="6+""#));
+}
+
+#[tokio::test]
+async fn a_tooltip_lists_every_series_but_skips_missing_values() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Cards by cost and type");
+    let tooltips: Vec<&str> = chart.split(r#"data-chart="tooltip""#).skip(1).collect();
+    assert_eq!(
+        tooltips[2].matches(r#"data-chart="tooltip-row""#).count(),
+        3
+    );
+    let gaps = figure(&html, "Wins per week");
+    let tooltips: Vec<&str> = gaps.split(r#"data-chart="tooltip""#).skip(1).collect();
+    assert_eq!(
+        tooltips[0].matches(r#"data-chart="tooltip-row""#).count(),
+        1
+    );
+    assert_eq!(
+        tooltips[1].matches(r#"data-chart="tooltip-row""#).count(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn an_empty_chart_has_nothing_to_hover() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "An empty deck");
+    assert_eq!(parts(chart, "hit-band"), 0);
+    assert_eq!(parts(chart, "tooltip"), 0);
+}

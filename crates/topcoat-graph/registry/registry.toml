@@ -17,6 +17,10 @@ source = "components/chart.rs"
 source = "components/chart_axis.rs"
 dependencies = ["chart"]
 
+[components.chart_tooltip]
+source = "components/chart_tooltip.rs"
+dependencies = ["chart"]
+
 [components.bar_chart]
 source = "components/bar_chart.rs"
-dependencies = ["chart", "chart_axis"]
+dependencies = ["chart", "chart_axis", "chart_tooltip"]

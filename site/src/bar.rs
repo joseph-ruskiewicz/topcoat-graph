@@ -94,6 +94,17 @@ async fn bar(cx: &Cx) -> Result<impl View> {
             )
         )
         example(
+            title: "Missing values",
+            note: "A value of f64::NAN leaves a gap and is left out of the tooltip.",
+            bar_chart(
+                label: "Wins per week",
+                category_header: "Week",
+                categories: labels(["Week 1", "Week 2", "Week 3", "Week 4"]),
+                series: vec![ChartSeries::new("Wins", [3.0, f64::NAN, 5.0, 2.0])],
+                integer_ticks: true
+            )
+        )
+        example(
             title: "Many categories",
             note: "With label_every: 5, one label in five is shown.",
             bar_chart(

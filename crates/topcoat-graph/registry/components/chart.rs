@@ -1,9 +1,10 @@
 use topcoat::{
     Result,
     context::Cx,
+    runtime::Signal,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
-use topcoat_graph::fmt::num;
+use topcoat_graph::{Orientation, fmt::num};
 
 /// One series of a chart: a name and a value per category.
 #[derive(Clone, Debug)]
@@ -156,5 +157,71 @@ pub async fn chart_table(
                 }
             </tbody>
         </table>
+    })
+}
+
+/// The hover and focus targets of a bar, line or area chart: one strip per category,
+/// covering the plot from edge to edge.
+///
+/// Pointing at a strip, or moving keyboard focus to it, sets `hovered` to its
+/// category's index, which shows that category's tooltip. The hovered strip is tinted.
+/// Place this inside the plot's positioned box, after the marks. The plot itself should
+/// clear `hovered` when the pointer leaves it.
+///
+/// `hovered` holds whatever the browser last sent, so it is only ever compared with a
+/// category's index and never used as one.
+#[component]
+pub async fn chart_hit_bands(
+    cx: &Cx,
+    /// The chart's hover state: the index of the hovered category, if any.
+    hovered: Signal<Option<usize>>,
+    /// The category labels, in order. Each names its strip for assistive technology.
+    labels: Vec<String>,
+    /// The id of each category's tooltip, which describes its strip.
+    tooltip_ids: Vec<String>,
+    /// Which way the chart's values run.
+    #[default]
+    orientation: Orientation,
+) -> Result<impl View> {
+    let vertical = orientation == Orientation::Vertical;
+    let step = 100.0 / labels.len().max(1) as f64;
+
+    Ok(view! {
+        for (index, (label, tooltip)) in labels.into_iter().zip(tooltip_ids).enumerate() {
+            let hovered = hovered.clone();
+            <div
+                data-chart="hit-band"
+                role="img"
+                tabindex="0"
+                aria-label=(label)
+                aria-describedby=(tooltip)
+                class=(class!(
+                    "absolute outline-none data-[active=true]:bg-foreground/5",
+                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                    if vertical { "inset-y-0" } else { "inset-x-0" },
+                ))
+                style=(if vertical {
+                    format!(
+                        "left:{};width:{}",
+                        percent(step * index as f64),
+                        percent(step),
+                    )
+                } else {
+                    format!(
+                        "top:{};height:{}",
+                        percent(step * index as f64),
+                        percent(step),
+                    )
+                })
+                :data-active=$(if hovered.get().is_some() {
+                    if hovered.get().unwrap() == index { "true" } else { "false" }
+                } else {
+                    "false"
+                })
+                @mouseenter=$(|_e| hovered.set(Some(index)))
+                @focus=$(|_e| hovered.set(Some(index)))
+                @blur=$(|_e| hovered.set(None))
+            ></div>
+        }
     })
 }
