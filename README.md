@@ -87,7 +87,7 @@ Only the tooltips and hover highlight are missing.
 | Name | What it is |
 | --- | --- |
 | `chart` | The frame every chart sits in: a named figure, the `ChartSeries` type, the `labels` helper, color defaults, the hidden data table and the hover targets. Every chart depends on it. |
-| `chart_axis` | Value axis labels, category axis labels and grid lines. Category labels truncate within their band. |
+| `chart_axis` | Value axis labels, category axis labels and grid lines. A long category label is cut off with an ellipsis. |
 | `chart_legend` | A color swatch and name per series or slice, wrapping onto more lines as needed. |
 | `chart_tooltip` | The panel shown for a hovered or focused category: its label, then a swatch, name and value per series. |
 | `bar_chart` | Bars, vertical or horizontal, with several series grouped side by side or stacked. Negative values grow down from the zero line. |
@@ -121,6 +121,26 @@ view! {
 `label` is the chart's accessible name. `category_header` heads the category column of the
 chart's data table. Each `ChartSeries` has a name and one value per category.
 
+### Charts in a loop
+
+Each chart keeps its hover state in a signal, and Topcoat needs to tell one chart's
+state from another's. When a `view!` loop renders a chart per item, key the loop, or the
+page fails with an "ambiguous identity" error:
+
+```rust
+view! {
+    #[key(deck.id)]
+    for deck in decks {
+        bar_chart(
+            label: deck.name.clone(),
+            category_header: "Cost",
+            categories: labels(["0", "1", "2", "3", "4", "5", "6+"]),
+            series: vec![ChartSeries::new("Cards", deck.curve.clone())]
+        )
+    }
+}
+```
+
 ### Props worth knowing
 
 - `integer_ticks: true` keeps the value axis on whole numbers, for charts that count things.
@@ -140,10 +160,14 @@ chart's data table. Each `ChartSeries` has a name and one value per category.
 ## Accessibility
 
 Each chart is a figure named by its `label` prop, and its data is in a visually hidden
-table, so the numbers are there without sight or hover. The drawing itself is hidden from
-screen readers. The hover targets, one per category or pie slice, are named and
-keyboard-focusable, so Tab moves through them and shows each tooltip. Every piece of text a chart shows or announces comes from props, so
-an app can pass localized strings.
+table, so the numbers are there without sight or hover. Bars, lines and axis labels are
+hidden from screen readers. The hover targets, one per category or pie slice, are named
+and keyboard-focusable, so Tab moves through them and shows each tooltip. A chart with 30
+categories adds 30 tab stops.
+
+Words a chart shows or announces all come from props, so an app can pass localized
+strings. Numbers are formatted by the components with a decimal point and no digit
+grouping. To change that, edit `category_tooltips` and `chart_table` in your copy.
 
 ## Colors
 
@@ -176,6 +200,9 @@ To give one series a color of its own, pass any CSS color:
 ChartSeries::new("Cards", [2.0, 5.0, 12.0]).color("var(--primary)")
 ```
 
+The color goes into a `style` attribute as written. Pass colors your app defines, and
+check a color that a user chose before passing it on.
+
 Text, grid lines and the tooltip surface use the theme's existing tokens, such as
 `text-muted-foreground`, `border` and `bg-popover`.
 
@@ -201,7 +228,7 @@ for tick in &layout.ticks {
 Every layout is computed in a `0 0 100 100` box, x running right and y running down, so
 positions double as percentages. Draw the plot as an SVG with that `viewBox` and
 `preserveAspectRatio="none"`, and place labels over it in HTML. A non-finite value means
-"no value here". Nothing in the crate panics or writes `NaN` into its output, and an empty
+"no value here". The layouts don't panic or write `NaN` into their output, and an empty
 chart still gets an axis. `xy_layout` does the same for line and area charts and
 `pie_layout` for pies.
 

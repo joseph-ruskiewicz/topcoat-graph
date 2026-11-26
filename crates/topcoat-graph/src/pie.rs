@@ -72,7 +72,11 @@ pub fn pie_layout(values: &[f64], options: &PieOptions) -> Vec<Slice> {
             // A gap never eats more than half of its slice.
             let inset = (pad / 2.0).min(span / 4.0);
             let (a0, a1) = (from + inset, from + span - inset);
-            let whole = fraction == 1.0;
+            // A slice whose two ends land on the same rounded point cannot be an arc:
+            // SVG draws nothing between equal points. It is the whole circle, or so
+            // nearly that the difference is invisible.
+            let ends_meet = pair(point(a0, RADIUS)) == pair(point(a1, RADIUS));
+            let whole = fraction == 1.0 || (ends_meet && a1 - a0 > PI);
             Slice {
                 index,
                 path: if whole {
@@ -250,5 +254,22 @@ mod tests {
                 .path
                 .contains("A47.5,47.5")
         );
+    }
+
+    #[test]
+    fn a_slice_just_under_the_whole_circle_still_draws() {
+        // Its two ends round to the same point, and an arc between equal points is
+        // dropped by SVG, so it has to be drawn as a full circle.
+        let s = pie(&[1_000_000.0, 1.0]);
+        assert_eq!(s.len(), 2);
+        assert_eq!(s[0].path, "M50,0A50,50 0 1 1 50,100A50,50 0 1 1 50,0Z");
+        let options = PieOptions {
+            inner_radius: 0.6,
+            ..Default::default()
+        };
+        let donut = pie_layout(&[1_000_000.0, 1.0], &options);
+        assert_eq!(donut[0].path.matches('A').count(), 4);
+        // A slice that really is small keeps its wedge.
+        assert_eq!(pie(&[99.0, 1.0])[0].path.matches('A').count(), 1);
     }
 }

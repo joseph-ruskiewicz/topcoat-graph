@@ -57,6 +57,36 @@ fn figure<'a>(html: &'a str, label: &str) -> &'a str {
     &html[start..end]
 }
 
+/// The rest of an opening tag, from somewhere inside it up to its closing `>`.
+///
+/// Attribute values are not searched for the end: the runtime's bind attributes hold
+/// arrow functions, and the `>` of a `=>` does not close the tag.
+fn tag_rest(html: &str) -> &str {
+    let bytes = html.as_bytes();
+    let end = (0..bytes.len())
+        .find(|&i| bytes[i] == b'>' && (i == 0 || bytes[i - 1] != b'='))
+        .expect("the tag closes");
+    &html[..end]
+}
+
+/// Whether the tag that `rest` is inside of is rendered with the `hidden` attribute.
+fn renders_hidden(rest: &str) -> bool {
+    tag_rest(rest).contains(r#" hidden="""#)
+}
+
+#[test]
+fn a_bound_hidden_attribute_alone_does_not_count_as_hidden() {
+    let bound = r#" data-topcoat-bind:hidden="(() => x)" class="a">text"#;
+    assert_eq!(
+        tag_rest(bound),
+        r#" data-topcoat-bind:hidden="(() => x)" class="a""#
+    );
+    assert!(!renders_hidden(bound));
+    assert!(renders_hidden(
+        r#" data-topcoat-bind:hidden="(() => x)" hidden="">text"#
+    ));
+}
+
 /// How many elements in `html` carry the marker attribute `data-chart="<part>"`.
 fn parts(html: &str, part: &str) -> usize {
     html.matches(&format!(r#"data-chart="{part}""#)).count()
@@ -69,7 +99,11 @@ async fn a_bar_chart_is_a_named_figure_with_a_stretched_plot() {
     assert!(chart.contains(r#"role="figure""#));
     assert!(chart.contains(r#"viewBox="0 0 100 100""#));
     assert!(chart.contains(r#"preserveAspectRatio="none""#));
-    assert!(chart.contains(r#"aria-hidden="true""#));
+    let svg = &chart[chart.find("<svg").unwrap()..];
+    assert!(
+        tag_rest(svg).contains(r#"aria-hidden="true""#),
+        "the drawing is decorative"
+    );
     assert!(!html.contains("NaN"));
 }
 
@@ -154,10 +188,9 @@ async fn each_category_has_a_hidden_tooltip_with_its_values() {
     let tooltips: Vec<&str> = chart.split(r#"data-chart="tooltip""#).skip(1).collect();
     assert_eq!(tooltips.len(), 7);
     for tooltip in &tooltips {
-        let tag = &tooltip[..tooltip.find('>').unwrap()];
         assert!(
-            tag.contains("hidden"),
-            "a tooltip is visible before any hover: {tag}"
+            renders_hidden(tooltip),
+            "a tooltip is visible before any hover"
         );
     }
     // The tooltip for cost 2 names the series and its value.
@@ -311,8 +344,7 @@ async fn a_line_chart_has_a_tooltip_and_hit_band_per_category() {
     assert_eq!(parts(chart, "tooltip"), 6);
     let tooltips: Vec<&str> = chart.split(r#"data-chart="tooltip""#).skip(1).collect();
     for tooltip in &tooltips {
-        let tag = &tooltip[..tooltip.find('>').unwrap()];
-        assert!(tag.contains("hidden"), "visible before hover: {tag}");
+        assert!(renders_hidden(tooltip), "visible before hover");
         assert_eq!(tooltip.matches(r#"data-chart="tooltip-row""#).count(), 2);
     }
 }
@@ -487,8 +519,7 @@ async fn each_drawn_slice_has_a_hidden_tooltip_with_its_share() {
     let tips = tooltips(chart);
     assert_eq!(tips.len(), 3);
     for tip in &tips {
-        let tag = &tip[..tip.find('>').unwrap()];
-        assert!(tag.contains("hidden"), "visible before hover: {tag}");
+        assert!(renders_hidden(tip), "visible before hover");
     }
     // Minions: 18 of 32 cards.
     assert!(tips[0].contains("Minions"), "{}", tips[0]);
@@ -604,4 +635,42 @@ async fn every_example_shows_the_code_that_drew_it() {
             "{page}: an example without a chart, or a chart outside an example"
         );
     }
+}
+
+#[tokio::test]
+async fn a_tooltip_never_opens_over_its_own_category() {
+    let html = get("/bar").await;
+    let chart = figure(&html, "Mana cost distribution");
+    let tooltips: Vec<&str> = chart.split(r#"data-chart="tooltip""#).skip(1).collect();
+    // Cost 3 is the middle band, spanning 44.29 to 55.71. Whichever edge the tooltip
+    // is anchored to, it has to open away from the band.
+    let middle = tag_rest(tooltips[3]);
+    let anchored_right = middle.contains("left:55.71%");
+    let opens_left = chart[..chart.find(tooltips[3]).unwrap()]
+        .rsplit("<div")
+        .next()
+        .unwrap()
+        .contains("-translate-x-full")
+        || middle.contains("-translate-x-full");
+    assert!(anchored_right != opens_left, "{middle}");
+    // The first band opens right from its right edge and the last opens left from its left.
+    assert!(tag_rest(tooltips[0]).contains("left:12.86%"));
+    assert!(tag_rest(tooltips[6]).contains("left:87.14%"));
+}
+
+#[tokio::test]
+async fn small_values_are_not_rounded_away_in_tooltips_or_the_table() {
+    let html = get("/line").await;
+    let chart = figure(&html, "Error rate by release");
+    assert!(chart.contains("<td>0.0012</td>"), "{chart}");
+    assert!(chart.contains(">0.0012</span>"));
+    assert!(!chart.contains("<td>0</td>"));
+}
+
+#[tokio::test]
+async fn a_pie_tooltip_shows_small_shares() {
+    let html = get("/pie").await;
+    let chart = figure(&html, "Games by platform");
+    assert!(chart.contains("3 (0.03%)"), "{chart}");
+    assert!(!chart.contains("(0%)"));
 }

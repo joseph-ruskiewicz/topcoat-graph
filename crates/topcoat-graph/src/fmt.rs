@@ -20,6 +20,32 @@ pub fn num(value: f64) -> String {
     text
 }
 
+/// Formats a data value for people to read, in a tooltip or a table.
+///
+/// Unlike [`num`], which rounds positions to two decimals, this keeps six significant
+/// digits, so `0.0012` stays `0.0012`. Whole parts are never rounded away, float noise
+/// such as `0.30000000000000004` is, and trailing zeros are trimmed. A non-finite
+/// value, which means "missing", is the empty string.
+pub fn value(value: f64) -> String {
+    if !value.is_finite() {
+        return String::new();
+    }
+    if value == 0.0 {
+        return String::from("0");
+    }
+    let magnitude = value.abs().log10().floor();
+    let decimals = (5.0 - magnitude).clamp(0.0, 12.0) as usize;
+    let mut text = format!("{value:.decimals$}");
+    if text.contains('.') {
+        let trimmed = text.trim_end_matches('0').trim_end_matches('.').len();
+        text.truncate(trimmed);
+    }
+    if text == "-0" {
+        text.remove(0);
+    }
+    text
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -38,5 +64,25 @@ mod tests {
         assert_eq!(num(-0.001), "0");
         assert_eq!(num(f64::NAN), "0");
         assert_eq!(num(f64::INFINITY), "0");
+    }
+
+    #[test]
+    fn value_keeps_small_numbers_readable() {
+        assert_eq!(value(0.0012), "0.0012");
+        assert_eq!(value(0.00000123456), "0.00000123456");
+        assert_eq!(value(0.123456789), "0.123457");
+        assert_eq!(value(12.0), "12");
+        assert_eq!(value(56.25), "56.25");
+        assert_eq!(value(-3.5), "-3.5");
+    }
+
+    #[test]
+    fn value_drops_float_noise_and_keeps_large_numbers_whole() {
+        assert_eq!(value(0.1 + 0.2), "0.3");
+        assert_eq!(value(1234567.0), "1234567");
+        assert_eq!(value(123456.789), "123457");
+        assert_eq!(value(0.0), "0");
+        assert_eq!(value(-0.0), "0");
+        assert_eq!(value(f64::NAN), "");
     }
 }

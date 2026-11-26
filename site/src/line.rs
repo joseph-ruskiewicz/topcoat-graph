@@ -112,6 +112,20 @@ async fn line(cx: &Cx) -> Result<impl View> {
             ) // end
         )
         example(
+            title: "Small values",
+            note: "Values keep their precision in the tooltip and the data table.",
+            code: snippet(SOURCE, "small-values"),
+            // example: small-values
+            line_chart(
+                label: "Error rate by release",
+                category_header: "Release",
+                categories: labels(["1.0", "1.1", "1.2", "1.3"]),
+                series: vec![
+                    ChartSeries::new("Error rate", [0.0034, 0.0021, 0.0012, 0.0015]),
+                ]
+            ) // end
+        )
+        example(
             title: "Missing values",
             note: "A value of f64::NAN breaks the line and is left out of the tooltip.",
             code: snippet(SOURCE, "missing-values"),

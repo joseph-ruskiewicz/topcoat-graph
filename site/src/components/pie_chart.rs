@@ -4,10 +4,10 @@ use topcoat::{
     runtime::signal,
     view::{Attributes, Child, StaticClass, View, class, component, element_id, view},
 };
-use topcoat_graph::{PieOptions, fmt::num, pie_layout};
+use topcoat_graph::{PieOptions, fmt::value, pie_layout};
 
 use super::{
-    chart::{ChartSeries, chart, chart_table, percent, series_color},
+    chart::{ChartSeries, chart, chart_table, series_color},
     chart_legend::chart_legend,
     chart_tooltip::{TooltipRow, chart_tooltip},
 };
@@ -96,6 +96,9 @@ const SLICE: StaticClass = class!(
 /// }
 /// ```
 ///
+/// In a `view!` loop that renders one chart per item, put `#[key(...)]` on the loop:
+/// each chart keeps its hover state in a signal and needs its own identity.
+///
 /// The chart is square, as wide as its container up to 18rem, and centered. `attrs`
 /// are forwarded to the chart's root `<div>`. Extra classes are added to its classes;
 /// to change the width, pass a different limit, such as `max-w-96`.
@@ -167,7 +170,11 @@ pub async fn pie_chart(
                 tooltip_id: format!("{tooltip_base}-{position}"),
                 row: TooltipRow {
                     name: value_header.clone(),
-                    value: format!("{} ({})", num(slice.value), percent(shape.fraction * 100.0)),
+                    value: format!(
+                        "{} ({}%)",
+                        value(slice.value),
+                        value(shape.fraction * 100.0)
+                    ),
                     color: color.clone(),
                 },
                 color,
@@ -251,7 +258,8 @@ pub async fn pie_chart(
                         title: slice.name,
                         rows: vec![slice.row],
                         x: slice.centroid.0,
-                        y: slice.centroid.1
+                        y: slice.centroid.1,
+                        opens_left: slice.centroid.0 > 50.0
                     )
                 }
             </div>

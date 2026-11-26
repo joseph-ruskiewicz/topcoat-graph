@@ -5,7 +5,7 @@ use topcoat::{
     view::{View, class, component, view},
 };
 
-use topcoat_graph::{Band, Orientation, fmt::num};
+use topcoat_graph::{Band, Orientation, fmt::value};
 
 use super::chart::{ChartSeries, percent};
 
@@ -20,14 +20,27 @@ pub struct TooltipRow {
     pub color: String,
 }
 
-/// One category's tooltip: its title, its rows, and its anchor in the plot.
-pub type CategoryTooltip = (String, Vec<TooltipRow>, f64, f64);
+/// One category's tooltip: what it says and where it goes.
+#[derive(Clone, Debug)]
+pub struct CategoryTooltip {
+    /// The heading: the category's label.
+    pub title: String,
+    /// One row per series that has a value in the category.
+    pub rows: Vec<TooltipRow>,
+    /// The anchor's horizontal position in the plot, from 0 to 100.
+    pub x: f64,
+    /// The anchor's vertical position in the plot, from 0 to 100.
+    pub y: f64,
+    /// Whether the panel opens to the left of its anchor.
+    pub opens_left: bool,
+}
 
 /// Builds the tooltip for each category of a bar, line or area chart.
 ///
 /// A tooltip lists every series that has a value in its category, under the category's
-/// label. It is anchored at the edge of the category's band nearer the middle of the
-/// plot, so it opens beside the marks instead of over them.
+/// label. In a vertical chart it is anchored to the edge of the category's band and
+/// opens away from the band, toward whichever side of the plot has more room, so it
+/// never covers the marks it describes.
 pub fn category_tooltips(
     categories: &[String],
     series: &[ChartSeries],
@@ -44,20 +57,27 @@ pub fn category_tooltips(
                 .iter()
                 .zip(colors)
                 .filter_map(|(one, color)| {
-                    let value = one.values.get(category).filter(|v| v.is_finite())?;
+                    let number = one.values.get(category).filter(|v| v.is_finite())?;
                     Some(TooltipRow {
                         name: one.name.clone(),
-                        value: num(*value),
+                        value: value(*number),
                         color: color.clone(),
                     })
                 })
                 .collect();
+            let opens_left = orientation == Orientation::Vertical && band.center > 50.0;
             let (x, y) = match orientation {
-                Orientation::Vertical if band.center <= 50.0 => (band.start + band.size, 50.0),
-                Orientation::Vertical => (band.start, 50.0),
+                Orientation::Vertical if opens_left => (band.start, 50.0),
+                Orientation::Vertical => (band.start + band.size, 50.0),
                 Orientation::Horizontal => (50.0, band.center),
             };
-            (title.clone(), rows, x, y)
+            CategoryTooltip {
+                title: title.clone(),
+                rows,
+                x,
+                y,
+                opens_left,
+            }
         })
         .collect()
 }
@@ -66,8 +86,8 @@ pub fn category_tooltips(
 ///
 /// A chart renders one of these per category, all hidden. The browser shows the one
 /// whose `index` matches `hovered`. Place it inside the plot's positioned box: `x` and
-/// `y` are percentages of that box. The panel opens to the right of its anchor in the
-/// left half of the plot and to the left of it in the right half, so it stays inside.
+/// `y` are percentages of that box. The panel opens to the right of its anchor, or to
+/// the left with `opens_left`; pick the side with more room so it stays inside.
 #[component]
 pub async fn chart_tooltip(
     cx: &Cx,
@@ -88,6 +108,9 @@ pub async fn chart_tooltip(
     x: f64,
     /// The anchor's vertical position in the plot, from 0 to 100.
     y: f64,
+    /// Open to the left of the anchor instead of the right.
+    #[default]
+    opens_left: bool,
 ) -> Result<impl View> {
     Ok(view! {
         <div
@@ -98,7 +121,7 @@ pub async fn chart_tooltip(
                 "pointer-events-none absolute z-10 flex -translate-y-1/2 flex-col gap-1",
                 "rounded-md border border-border bg-popover px-2.5 py-1.5 whitespace-nowrap",
                 "text-popover-foreground shadow-sm",
-                if x > 50.0 { "mr-2 -translate-x-full -ml-2" } else { "ml-2" },
+                if opens_left { "mr-2 -translate-x-full -ml-2" } else { "ml-2" },
             ))
             style=(format!("left:{};top:{}", percent(x), percent(y)))
             :hidden=$(if hovered.get().is_some() {

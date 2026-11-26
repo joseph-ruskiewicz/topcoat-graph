@@ -38,6 +38,9 @@ const FRAME: StaticClass = class!(
 /// }
 /// ```
 ///
+/// In a `view!` loop that renders one chart per item, put `#[key(...)]` on the loop:
+/// each chart keeps its hover state in a signal and needs its own identity.
+///
 /// `attrs` are forwarded to the chart's root `<div>`. Extra classes are added to its
 /// classes.
 #[component]
@@ -146,15 +149,16 @@ pub async fn bar_chart(
                         tooltip_ids: tooltip_ids.clone(),
                         orientation: orientation
                     )
-                    for (index, (title, rows, x, y)) in tooltips.into_iter().enumerate() {
+                    for (index, tip) in tooltips.into_iter().enumerate() {
                         chart_tooltip(
                             hovered: hovered.clone(),
                             index: index,
                             id: tooltip_ids[index].clone(),
-                            title: title,
-                            rows: rows,
-                            x: x,
-                            y: y
+                            title: tip.title,
+                            rows: tip.rows,
+                            x: tip.x,
+                            y: tip.y,
+                            opens_left: tip.opens_left
                         )
                     }
                 </div>

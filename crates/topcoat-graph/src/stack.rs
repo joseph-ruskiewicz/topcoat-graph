@@ -22,12 +22,10 @@ pub fn stack(series: &[&[f64]], category_count: usize) -> Vec<Vec<Option<(f64, f
                         &mut negative
                     };
                     let from = base[category];
-                    base[category] = from + value;
-                    Some(if value >= 0.0 {
-                        (from, from + value)
-                    } else {
-                        (from + value, from)
-                    })
+                    // Saturate rather than overflow to infinity.
+                    let to = (from + value).clamp(f64::MIN, f64::MAX);
+                    base[category] = to;
+                    Some(if value >= 0.0 { (from, to) } else { (to, from) })
                 })
                 .collect()
         })

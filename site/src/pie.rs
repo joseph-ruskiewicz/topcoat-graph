@@ -37,6 +37,22 @@ async fn pie(cx: &Cx) -> Result<impl View> {
             ) // end
         )
         example(
+            title: "A very small slice",
+            note: "A slice too thin to see still has its share in the legend and the data table.",
+            code: snippet(SOURCE, "small-slice"),
+            // example: small-slice
+            pie_chart(
+                label: "Games by platform",
+                category_header: "Platform",
+                value_header: "Games",
+                slices: vec![
+                    PieSlice::new("Online", 9997.0),
+                    PieSlice::new("Tabletop", 3.0),
+                ],
+                legend: true
+            ) // end
+        )
+        example(
             title: "Donut",
             note: "A hole in the middle, with the total in it.",
             code: snippet(SOURCE, "donut"),

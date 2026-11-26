@@ -78,7 +78,8 @@ pub struct BarOptions {
     pub integer_ticks: bool,
     /// The fraction of each category's step left empty around its bars.
     pub band_padding: f64,
-    /// The gap between grouped bars, as a fraction of the band.
+    /// The gap between grouped bars, as a fraction of the band. The gaps in a group
+    /// never take more than half of the band between them.
     pub group_gap: f64,
 }
 
@@ -144,7 +145,8 @@ pub fn bar_layout(category_count: usize, series: &[&[f64]], options: &BarOptions
         BarMode::Grouped => series.len().max(1),
         BarMode::Stacked => 1,
     };
-    let gap = finite_or(options.group_gap, 0.0).clamp(0.0, 0.5);
+    // All the gaps in a group together take at most half of its band.
+    let gap = finite_or(options.group_gap, 0.0).clamp(0.0, 0.5 / (slots.max(2) - 1) as f64);
     let mut bars = Vec::new();
     for (index, values) in series.iter().enumerate() {
         for (category, band) in bands.iter().enumerate() {
@@ -605,5 +607,47 @@ mod tests {
             }
             assert!(l.ticks.iter().all(|t| t.position.is_finite()));
         }
+    }
+
+    #[test]
+    fn stacks_that_overflow_stay_finite() {
+        let options = BarOptions {
+            mode: BarMode::Stacked,
+            ..Default::default()
+        };
+        let l = bar_layout(1, &[&[1e308], &[1e308], &[-1e308], &[-1e308]], &options);
+        assert_eq!(l.bars.len(), 4);
+        for bar in &l.bars {
+            let r = &bar.rect;
+            assert!(
+                [r.x, r.y, r.width, r.height].iter().all(|v| v.is_finite()),
+                "{r:?}"
+            );
+        }
+        let options = XyOptions {
+            stacked: true,
+            ..Default::default()
+        };
+        let l = xy_layout(1, &[&[1e308], &[1e308]], &options);
+        assert!(
+            l.series
+                .iter()
+                .all(|s| s.points[0].is_some_and(|(x, y)| x.is_finite() && y.is_finite()))
+        );
+    }
+
+    #[test]
+    fn a_wide_group_gap_never_squeezes_bars_to_nothing() {
+        let options = BarOptions {
+            group_gap: 0.5,
+            ..Default::default()
+        };
+        let l = bar_layout(1, &[&[1.0], &[1.0], &[1.0], &[1.0]], &options);
+        assert!(l.bars.iter().all(|b| b.rect.width > 0.0));
+        let last = &l.bars[3].rect;
+        assert!(close(
+            last.x + last.width,
+            l.bands[0].start + l.bands[0].size
+        ));
     }
 }

@@ -14,8 +14,14 @@ pub struct Ticks {
 
 impl Ticks {
     /// The first and last tick: the domain an axis with these ticks spans.
+    ///
+    /// Ticks built by [`nice`] always have at least two values. For a hand-built value
+    /// with none, the domain is `(0.0, 1.0)`.
     pub fn domain(&self) -> (f64, f64) {
-        (self.values[0], self.values[self.values.len() - 1])
+        match (self.values.first(), self.values.last()) {
+            (Some(&first), Some(&last)) => (first, last),
+            _ => (0.0, 1.0),
+        }
     }
 
     /// The text for a tick, with the decimal places the step needs and no trailing zeros.
@@ -180,5 +186,14 @@ mod tests {
     fn huge_spans_do_not_explode_the_tick_count() {
         assert!(nice(0.0, 1e300, 5, false).values.len() <= 12);
         assert!(nice(0.0, 1e-300, 5, false).values.len() <= 12);
+    }
+
+    #[test]
+    fn a_hand_built_empty_ticks_still_has_a_domain() {
+        let empty = Ticks {
+            values: Vec::new(),
+            step: 1.0,
+        };
+        assert_eq!(empty.domain(), (0.0, 1.0));
     }
 }

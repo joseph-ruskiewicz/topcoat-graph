@@ -4,7 +4,10 @@ use topcoat::{
     runtime::Signal,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
-use topcoat_graph::{Orientation, fmt::num};
+use topcoat_graph::{
+    Orientation,
+    fmt::{num, value},
+};
 
 /// One series of a chart: a name and a value per category.
 #[derive(Clone, Debug)]
@@ -33,6 +36,9 @@ impl ChartSeries {
     }
 
     /// Sets the series' color to any CSS color, such as `"var(--primary)"`.
+    ///
+    /// The text goes into a `style` attribute as written. Pass colors your app
+    /// defines; check a color that a user chose before passing it on.
     pub fn color(mut self, css: impl Into<String>) -> Self {
         self.color = Some(css.into());
         self
@@ -152,7 +158,7 @@ pub async fn chart_table(
                                     .values
                                     .get(index)
                                     .filter(|v| v.is_finite())
-                                    .map(|v| num(*v)))
+                                    .map(|v| value(*v)))
                             </td>
                         }
                     </tr>
