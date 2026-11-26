@@ -37,6 +37,15 @@ To install everything:
 topcoat ui add --all --registry topcoat-graph
 ```
 
+To pick up a newer version later, update the crate and reinstall the components
+together. `--overwrite` replaces only the components you name, so name them all or use
+`--all`:
+
+```sh
+cargo update -p topcoat-graph
+topcoat ui add --all --registry topcoat-graph --overwrite
+```
+
 As with any `topcoat ui` app, the installed `styles.css` is your Tailwind input. Render it
 in `build.rs`, with `topcoat` also in `[build-dependencies]` with the `tailwind` feature:
 
