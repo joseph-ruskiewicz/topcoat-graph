@@ -215,16 +215,29 @@ and area; a slice for pie.
   slices) through bound classes.
 - Hit targets are focusable so the tooltip also works from the keyboard.
 
-All of this fits the runtime's expression subset: signal get and set, `Option`
-comparison through `is_some` and integer equality, bound attributes. If the builder
-finds something that doesn't fit, `raw!` is acceptable for a small piece. If it needs
-more than that, stop and report: that is the "another Topcoat library" case.
+All of this fits the runtime's expression subset, checked against Topcoat's source:
+
+- Events and binds work on SVG elements. Hydration walks every element
+  (`topcoat-runtime/browser/src/dom/hydrate.ts`), handlers use `addEventListener`, and
+  binds write with `setAttribute`, so `:class` works on `<rect>` and `<path>`.
+- Don't bind camelCase SVG attributes (`:viewBox`): the bind name is read back from the
+  DOM, which lowercases it. The design doesn't need to.
+- `&&`, `||` and `Option` equality aren't in the subset. The hover test is written
+  `if h.is_some() { h.unwrap() == i } else { false }`.
+- A signal's identity comes from `cx` and the call site, so each chart instance has its
+  own. Charts rendered in a `view!` loop need `#[key]`.
+- Signal values coming back from the browser are untrusted. An out-of-range hover index
+  must render as "nothing hovered", never panic.
+
+If the builder finds something that doesn't fit, `raw!` is acceptable for a small piece.
+If it needs more than that, stop and report: that is the "another Topcoat library" case.
 
 ### Theming
 
 Series colors are five tokens, `--chart-1` through `--chart-5`, as in shadcn. The
-neutral theme doesn't define them. Components read them with built-in fallbacks
-(`var(--chart-1, <default>)`), so charts look right with no setup, and the README shows
+neutral theme doesn't define them. Components read them with built-in fallbacks, so
+charts look right with no setup. Dark mode in the neutral theme is a `.dark` class, so
+the fallbacks need a light value and a `dark:` value. The README shows
 the block to add to `styles.css` for light and dark values. A series can also be given
 an explicit color. More than five series cycle.
 
@@ -236,6 +249,10 @@ as `text-muted-foreground`, `border`, `bg-popover`.
 Each chart has an accessible name from its `label` prop and includes its data as a
 visually hidden table, so the numbers are available without sight or hover. The SVG
 itself is presentational.
+
+Every piece of text a chart shows or announces (label, table headers, series names)
+comes in as a prop. Components contain no hardcoded English, so localized apps such as
+contested-realm can pass `t!` values.
 
 ### Gallery site
 
@@ -256,10 +273,27 @@ scope for now.
 
 ### contested-realm
 
-The last milestone adds the mana curve to a deck page in `../contested-realm`, using a
-path dependency on this repo until the crate is published. That work happens in the
-contested-realm repo, on a branch, and needs Joseph's go-ahead before it starts since
-it touches a different project.
+The last milestone adds the mana curve to contested-realm. Decided by Joseph:
+
+- It shows on both deck pages: the owner's deck builder (`src/app/decks/deck_id.rs`) and
+  the public deck page (`src/app/public/owner_id/deck_id.rs`).
+- contested-realm depends on topcoat-graph as a git dependency on the GitHub repo for
+  now, since its Dockerfile and CI build from its own directory and can't resolve a
+  sibling path. It switches to a crates.io version when the crate is published.
+
+Proposed by Claude and not objected to: the curve counts the spellbook only (sites and
+avatars have no cost), counts every copy, has one bar per cost from 0 up with a final
+"6+" bucket, and uses a single color. Stacking by element can follow later.
+
+On the deck builder the deck list re-renders on each card change through a
+`version: Signal<u64>`; the curve should update with it. Labels come from Fluent (`t!`).
+
+The work happens in the contested-realm repo, on a branch.
+
+### Hosting
+
+Decided by Joseph: the repo is public at `joseph-ruskiewicz/topcoat-graph` on GitHub,
+next to `topcoat-prompt`, with the same GitHub Actions CI.
 
 ## Build split
 
@@ -272,9 +306,10 @@ it touches a different project.
 ## Left to the builder
 
 - Exact prop names and types, and the Topcoat component syntax details.
-- Confirming early, with a small spike, that `view!` emits SVG correctly (case-sensitive
-  attributes such as `viewBox`, `preserveAspectRatio`) and that runtime event and bind
-  attributes work on SVG elements. If either fails, report before working around it.
+- A quick early spike of a stretched SVG with a hover bind, to confirm the technique end
+  to end. It's expected to pass: `topcoat/demos/admin/src/components/chart.rs` already
+  renders a stretched line and bar chart with `viewBox`, `preserveAspectRatio="none"`
+  and `vector-effect="non-scaling-stroke"`, and is worth reading first.
 - Default colors for the five chart tokens in light and dark.
 - Default margins, tick counts, bar padding, corner radius.
 - Module and file organization inside the crate and the site.
