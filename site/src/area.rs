@@ -13,8 +13,11 @@ use crate::{
         area_chart::area_chart,
         chart::{ChartSeries, labels},
     },
-    shell::example,
+    shell::{example, snippet},
 };
+
+/// This page's source, which each example's code is cut from.
+const SOURCE: &str = include_str!("area.rs");
 
 const TURNS: [&str; 8] = [
     "Turn 1", "Turn 2", "Turn 3", "Turn 4", "Turn 5", "Turn 6", "Turn 7", "Turn 8",
@@ -28,6 +31,8 @@ async fn area(cx: &Cx) -> Result<impl View> {
         example(
             title: "Single series",
             note: "The space under the line is filled down to zero.",
+            code: snippet(SOURCE, "single-series"),
+            // example: single-series
             area_chart(
                 label: "Cards drawn per turn",
                 category_header: "Turn",
@@ -39,11 +44,13 @@ async fn area(cx: &Cx) -> Result<impl View> {
                     ),
                 ],
                 integer_ticks: true
-            )
+            ) // end
         )
         example(
             title: "Several series",
             note: "Areas overlap, each down to zero, named in a legend.",
+            code: snippet(SOURCE, "several-series"),
+            // example: several-series
             area_chart(
                 label: "Mana spent and left over",
                 category_header: "Turn",
@@ -57,11 +64,13 @@ async fn area(cx: &Cx) -> Result<impl View> {
                 ],
                 integer_ticks: true,
                 legend: true
-            )
+            ) // end
         )
         example(
             title: "Smooth",
             note: "A curve through every point that never overshoots the data.",
+            code: snippet(SOURCE, "smooth"),
+            // example: smooth
             area_chart(
                 label: "Deck size over a draft",
                 category_header: "Pick",
@@ -73,11 +82,13 @@ async fn area(cx: &Cx) -> Result<impl View> {
                 ],
                 curve: Curve::Smooth,
                 integer_ticks: true
-            )
+            ) // end
         )
         example(
             title: "Stacked",
             note: "Series on top of each other, so the top line is the total.",
+            code: snippet(SOURCE, "stacked"),
+            // example: stacked
             area_chart(
                 label: "Cards in hand by type",
                 category_header: "Turn",
@@ -93,11 +104,13 @@ async fn area(cx: &Cx) -> Result<impl View> {
                 stacked: true,
                 integer_ticks: true,
                 legend: true
-            )
+            ) // end
         )
         example(
             title: "Missing values",
             note: "A value of f64::NAN breaks the area and is left out of the tooltip.",
+            code: snippet(SOURCE, "missing-values"),
+            // example: missing-values
             area_chart(
                 label: "Cards drawn, with a gap",
                 category_header: "Turn",
@@ -106,18 +119,20 @@ async fn area(cx: &Cx) -> Result<impl View> {
                     ChartSeries::new("Cards drawn", [7.0, 1.0, f64::NAN, 2.0, 3.0]),
                 ],
                 integer_ticks: true
-            )
+            ) // end
         )
         example(
             title: "No data",
             note: "An empty chart keeps its frame and axis.",
+            code: snippet(SOURCE, "no-data"),
+            // example: no-data
             area_chart(
                 label: "No turns yet",
                 category_header: "Turn",
                 categories: Vec::new(),
                 series: vec![ChartSeries::new("Cards", [])],
                 integer_ticks: true
-            )
+            ) // end
         )
     })
 }

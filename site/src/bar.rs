@@ -13,8 +13,11 @@ use crate::{
         bar_chart::bar_chart,
         chart::{ChartSeries, labels},
     },
-    shell::example,
+    shell::{example, snippet},
 };
+
+/// This page's source, which each example's code is cut from.
+const SOURCE: &str = include_str!("bar.rs");
 
 /// A deck's cards by mana cost.
 pub const MANA_CURVE: [f64; 7] = [2.0, 5.0, 12.0, 9.0, 4.0, 1.0, 0.0];
@@ -33,17 +36,21 @@ async fn bar(cx: &Cx) -> Result<impl View> {
         example(
             title: "Single series",
             note: "A deck's cards by mana cost, with whole-number ticks.",
+            code: snippet(SOURCE, "single-series"),
+            // example: single-series
             bar_chart(
                 label: "Mana cost distribution",
                 category_header: "Cost",
                 categories: labels(COSTS),
                 series: vec![ChartSeries::new("Cards", MANA_CURVE)],
                 integer_ticks: true
-            )
+            ) // end
         )
         example(
             title: "Grouped",
             note: "Several series side by side in each category, with a legend.",
+            code: snippet(SOURCE, "grouped"),
+            // example: grouped
             bar_chart(
                 label: "Revenue and costs by quarter",
                 category_header: "Quarter",
@@ -53,11 +60,13 @@ async fn bar(cx: &Cx) -> Result<impl View> {
                     ChartSeries::new("Costs", [30.0, 35.0, 41.0, 44.0]),
                 ],
                 legend: true
-            )
+            ) // end
         )
         example(
             title: "Stacked",
             note: "Series on top of each other, so each bar's height is the total.",
+            code: snippet(SOURCE, "stacked"),
+            // example: stacked
             bar_chart(
                 label: "Cards by cost and type",
                 category_header: "Cost",
@@ -69,11 +78,13 @@ async fn bar(cx: &Cx) -> Result<impl View> {
                 ],
                 mode: BarMode::Stacked,
                 integer_ticks: true
-            )
+            ) // end
         )
         example(
             title: "Horizontal",
             note: "Categories down the side. Good for long labels.",
+            code: snippet(SOURCE, "horizontal"),
+            // example: horizontal
             bar_chart(
                 label: "Cards by element",
                 category_header: "Element",
@@ -82,32 +93,38 @@ async fn bar(cx: &Cx) -> Result<impl View> {
                 orientation: Orientation::Horizontal,
                 integer_ticks: true,
                 attrs: attributes! { class="aspect-auto h-56" }
-            )
+            ) // end
         )
         example(
             title: "Negative values",
             note: "Bars grow from the zero line in both directions.",
+            code: snippet(SOURCE, "negative-values"),
+            // example: negative-values
             bar_chart(
                 label: "Net change by quarter",
                 category_header: "Quarter",
                 categories: labels(QUARTERS),
                 series: vec![ChartSeries::new("Net change", [12.0, -8.0, 4.0, -15.0])]
-            )
+            ) // end
         )
         example(
             title: "Missing values",
             note: "A value of f64::NAN leaves a gap and is left out of the tooltip.",
+            code: snippet(SOURCE, "missing-values"),
+            // example: missing-values
             bar_chart(
                 label: "Wins per week",
                 category_header: "Week",
                 categories: labels(["Week 1", "Week 2", "Week 3", "Week 4"]),
                 series: vec![ChartSeries::new("Wins", [3.0, f64::NAN, 5.0, 2.0])],
                 integer_ticks: true
-            )
+            ) // end
         )
         example(
             title: "Many categories",
             note: "With label_every: 5, one label in five is shown.",
+            code: snippet(SOURCE, "many-categories"),
+            // example: many-categories
             bar_chart(
                 label: "Games played per day",
                 category_header: "Day",
@@ -115,18 +132,20 @@ async fn bar(cx: &Cx) -> Result<impl View> {
                 series: vec![ChartSeries::new("Games", many_values)],
                 integer_ticks: true,
                 label_every: 5
-            )
+            ) // end
         )
         example(
             title: "No data",
             note: "An empty chart keeps its frame and axis.",
+            code: snippet(SOURCE, "no-data"),
+            // example: no-data
             bar_chart(
                 label: "An empty deck",
                 category_header: "Cost",
                 categories: Vec::new(),
                 series: vec![ChartSeries::new("Cards", [])],
                 integer_ticks: true
-            )
+            ) // end
         )
     })
 }

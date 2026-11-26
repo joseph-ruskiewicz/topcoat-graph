@@ -527,3 +527,81 @@ async fn a_zero_slice_is_skipped_but_listed_and_keeps_the_colors_in_place() {
         "{chart}"
     );
 }
+
+#[tokio::test]
+async fn the_home_page_shows_one_of_each_chart_and_links_to_its_page() {
+    let html = get("/").await;
+    assert!(!html.contains("NaN"));
+    assert_eq!(html.matches(r#"role="figure""#).count(), 4);
+    let main = &html[html.find("<main").unwrap()..];
+    for page in ["/bar", "/line", "/area", "/pie"] {
+        assert!(
+            main.contains(&format!(r#"href="{page}""#)),
+            "no link to {page}"
+        );
+    }
+    assert!(
+        html.contains("cargo add topcoat-graph --git"),
+        "no install steps"
+    );
+}
+
+#[tokio::test]
+async fn every_page_has_the_navigation_and_marks_the_current_one() {
+    for page in ["/", "/bar", "/line", "/area", "/pie"] {
+        let html = get(page).await;
+        let header = &html[html.find("<header").unwrap()..html.find("</header>").unwrap()];
+        for link in ["/", "/bar", "/line", "/area", "/pie"] {
+            assert!(
+                header.contains(&format!(r#"href="{link}""#)),
+                "{page}: {link}"
+            );
+        }
+        assert_eq!(
+            header.matches(r#"aria-current="page""#).count(),
+            1,
+            "{page}"
+        );
+        let at = header.find(r#"aria-current="page""#).unwrap();
+        let tag = &header[header[..at].rfind("<a").unwrap()..at + header[at..].find('>').unwrap()];
+        assert!(
+            tag.contains(&format!(r#"href="{page}""#)),
+            "{page} is not the current link"
+        );
+        assert!(header.contains("aria-pressed="), "{page}: no theme toggle");
+    }
+}
+
+#[tokio::test]
+async fn every_example_shows_the_code_that_drew_it() {
+    for page in ["/bar", "/line", "/area", "/pie"] {
+        let html = get(page).await;
+        let sections: Vec<&str> = html.split("<section").skip(1).collect();
+        assert!(!sections.is_empty(), "{page}");
+        for section in sections {
+            let code = &section[section
+                .find("<code>")
+                .unwrap_or_else(|| panic!("{page}: no code"))
+                + "<code>".len()..];
+            let code = &code[..code.find("</code>").unwrap()];
+            assert!(
+                code.contains("_chart("),
+                "{page}: no chart call in {code:?}"
+            );
+            assert!(
+                !code.contains("// example:") && !code.contains("// end"),
+                "{code}"
+            );
+            // The code is dedented: its first line starts at the margin.
+            assert!(
+                code.starts_with(|c: char| c.is_ascii_lowercase()),
+                "{code:?}"
+            );
+        }
+        assert_eq!(
+            html.matches("<section").count(),
+            html.matches(r#"role="figure""#).count(),
+            "{page}: an example without a chart, or a chart outside an example"
+        );
+    }
+}

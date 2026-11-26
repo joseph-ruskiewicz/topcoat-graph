@@ -93,7 +93,7 @@ Only the tooltips and hover highlight are missing.
 | `bar_chart` | Bars, vertical or horizontal, with several series grouped side by side or stacked. Negative values grow down from the zero line. |
 | `line_chart` | One or more lines, straight or smooth (`curve`), with optional dots (`dots`). `include_zero` starts the value axis at zero, and `legend` shows a legend. |
 | `area_chart` | One or more filled areas, straight or smooth (`curve`), optionally stacked (`stacked`), with `legend`. The value axis always starts at zero. |
-| `pie_chart` | A pie from `slices: Vec<PieSlice>`, or a donut with `donut: true` and its center content passed as children. Each slice has its own tooltip. `legend` shows a legend. |
+| `pie_chart` | A pie from `slices: Vec<PieSlice>`, each made with `PieSlice::new(name, value)`, or a donut with `donut: true` and its center content passed as children. `value_header` names the values in the tooltip and data table. Each slice has its own tooltip. `legend` shows a legend. |
 
 ### A bar chart
 
@@ -130,7 +130,8 @@ chart's data table. Each `ChartSeries` has a name and one value per category.
 - `mode: BarMode::Stacked` stacks several series on each other instead of grouping them.
 - `attrs` sets attributes on the chart's root element. A chart is as wide as its container
   with a 16:9 shape by default. For a fixed height, pass
-  `attrs: attributes! { class="aspect-auto h-64" }`.
+  `attrs: attributes! { class="aspect-auto h-64" }`. A pie chart is square, centered and at
+  most 18rem wide. To change its width, pass a class that overrides, such as `max-w-96!`.
 - A missing value is `f64::NAN` (any non-finite number). A bar chart leaves a gap, a line
   breaks around it, and the tooltip leaves it out.
 
@@ -139,9 +140,9 @@ chart's data table. Each `ChartSeries` has a name and one value per category.
 ## Accessibility
 
 Each chart is a figure named by its `label` prop, and its data is in a visually hidden
-table, so the numbers are there without sight or hover. The drawn chart is hidden from
-screen readers. The hover targets are keyboard-focusable, so Tab moves through categories
-and shows each tooltip. Every piece of text a chart shows or announces comes from props, so
+table, so the numbers are there without sight or hover. The drawing itself is hidden from
+screen readers. The hover targets, one per category or pie slice, are named and
+keyboard-focusable, so Tab moves through them and shows each tooltip. Every piece of text a chart shows or announces comes from props, so
 an app can pass localized strings.
 
 ## Colors
