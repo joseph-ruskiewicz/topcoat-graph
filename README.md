@@ -5,6 +5,8 @@ render on the server as SVG with HTML labels, so they read fine with no script l
 the Topcoat runtime on the page, pointing at a category or tabbing to it shows its values in
 a tooltip. Colors come from your app's theme tokens and work in light and dark mode.
 
+Docs, live examples and a playground for each chart: <https://topcoat-graph.fly.dev>
+
 topcoat-graph is a community project, not part of Topcoat or maintained by tokio-rs.
 
 It has two parts. The first is a `topcoat ui` component registry: the chart components are
