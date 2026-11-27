@@ -1135,3 +1135,225 @@ async fn a_horizontal_chart_sizes_its_label_column_by_every_label() {
     let vertical = figure(&html, "Mana cost distribution");
     assert_eq!(vertical.matches(r#"data-chart="label-size""#).count(), 0);
 }
+
+// The blocks.
+
+/// The id, title and chart label of each block added after the mana curve.
+const BLOCK_CHARTS: [(&str, &str, &str); 5] = [
+    (
+        "block_stat_cards",
+        "Stat cards over a chart",
+        "Games played per week, last 12 weeks",
+    ),
+    (
+        "block_interactive_range",
+        "Range and metric switcher",
+        "Games per day, last 30 days",
+    ),
+    (
+        "block_multi_line",
+        "Win rate by deck",
+        "Win rate by deck over eight weeks",
+    ),
+    (
+        "block_donut_total",
+        "Donut with a total",
+        "Games by archetype this season",
+    ),
+    (
+        "block_ranked_bars",
+        "Ranked list",
+        "Most played cards in winning decks",
+    ),
+];
+
+#[tokio::test]
+async fn each_block_shows_its_title_and_a_named_chart() {
+    let html = get("/blocks").await;
+    for (id, title, label) in BLOCK_CHARTS {
+        let section = example_section(&html, id);
+        assert!(
+            section.contains(&format!(">{title}</h3>")),
+            "{id}: no title"
+        );
+        figure(section, label);
+    }
+}
+
+/// The text of each toggle button in `html` and whether it is pressed.
+fn toggles(html: &str) -> Vec<(String, bool)> {
+    html.split("<button")
+        .skip(1)
+        .filter_map(|rest| {
+            let tag = tag_rest(rest);
+            let pressed = if tag.contains(r#"aria-pressed="true""#) {
+                true
+            } else if tag.contains(r#"aria-pressed="false""#) {
+                false
+            } else {
+                return None;
+            };
+            let body = &rest[tag.len() + 1..];
+            let body = &body[..body.find("</button>").unwrap()];
+            Some((text(body).trim().to_owned(), pressed))
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn the_interactive_block_starts_on_thirty_days_of_games() {
+    let html = get("/blocks").await;
+    let section = example_section(&html, "block_interactive_range");
+    let chart = figure(section, "Games per day, last 30 days");
+    // A header row and a row per day.
+    assert_eq!(chart.matches("<tr>").count(), 31, "{chart}");
+    assert!(chart.contains(r#"<th scope="row">Day 61</th>"#));
+    assert!(chart.contains(r#"<th scope="row">Day 90</th>"#));
+    assert!(!chart.contains(r#"<th scope="row">Day 60</th>"#));
+    // One label in five.
+    assert_eq!(parts(chart, "category"), 6);
+    let toggles = toggles(section);
+    let expected = [
+        ("7 days", false),
+        ("30 days", true),
+        ("90 days", false),
+        ("Games", true),
+        ("Wins", false),
+    ];
+    assert_eq!(
+        toggles,
+        expected.map(|(name, pressed)| (name.to_owned(), pressed)),
+    );
+    for button in section.split("<button").skip(1) {
+        let tag = tag_rest(button);
+        if tag.contains("aria-pressed=") {
+            assert!(tag.contains(r#"type="button""#), "{tag}");
+        }
+    }
+    assert!(section.contains(r#"role="group""#));
+}
+
+#[test]
+fn the_interactive_block_treats_its_signals_as_untrusted() {
+    use crate::examples::block_interactive_range::{METRICS, RANGES, metric, range};
+
+    for option in &RANGES {
+        assert_eq!(range(option.days).days, option.days);
+    }
+    for value in [0, 1, 29, 31, 89, 91, usize::MAX] {
+        assert_eq!(range(value).days, 30, "{value}");
+    }
+    for option in &METRICS {
+        assert_eq!(metric(option.key).key, option.key);
+    }
+    for value in ["", "WINS", " wins", "wins ", "losses", "<script>"] {
+        assert_eq!(metric(value).key, "games", "{value:?}");
+    }
+}
+
+#[test]
+fn the_interactive_block_generates_the_same_days_every_time() {
+    use crate::examples::block_interactive_range::{METRICS, RANGES, daily};
+
+    let games = &METRICS[0];
+    let wins = &METRICS[1];
+    let (all_days, all_games) = daily(games, 90);
+    assert_eq!(all_days.len(), 90);
+    assert_eq!(all_games.len(), 90);
+    assert_eq!(all_days.first().unwrap(), "Day 1");
+    assert_eq!(all_days.last().unwrap(), "Day 90");
+    assert_eq!(daily(games, 90), (all_days.clone(), all_games.clone()));
+    let (_, all_wins) = daily(wins, 90);
+    for (games, wins) in all_games.iter().zip(&all_wins) {
+        assert!(games.is_finite() && *games > 0.0 && games.fract() == 0.0);
+        assert!(wins.is_finite() && *wins >= 0.0 && wins <= games);
+    }
+    // A shorter range is the end of the longest one.
+    for option in &RANGES {
+        let (days, values) = daily(games, option.days);
+        assert_eq!(days.len(), option.days);
+        assert_eq!(days[..], all_days[90 - option.days..]);
+        assert_eq!(values[..], all_games[90 - option.days..]);
+    }
+    // More days than there is data for gives what there is.
+    assert_eq!(daily(games, 1000).0.len(), 90);
+}
+
+/// Each `<th scope="row">` and the number in the cell after it, from a chart's table.
+fn table_rows(chart: &str) -> Vec<(String, f64)> {
+    chart
+        .split(r#"<th scope="row">"#)
+        .skip(1)
+        .map(|rest| {
+            let (name, rest) = rest.split_once("</th><td>").unwrap();
+            let value = &rest[..rest.find("</td>").unwrap()];
+            (text(name), value.parse().unwrap())
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn the_ranked_block_lists_its_cards_from_most_to_least() {
+    let html = get("/blocks").await;
+    let chart = figure(&html, "Most played cards in winning decks");
+    let rows = table_rows(chart);
+    assert!((6..=8).contains(&rows.len()), "{rows:?}");
+    assert!(
+        rows.windows(2).all(|pair| pair[0].1 >= pair[1].1),
+        "{rows:?}"
+    );
+    assert!(rows.iter().any(|(name, _)| name.len() > 20), "long labels");
+    assert_eq!(chart.matches("<rect").count(), rows.len());
+    assert!(chart.contains(r#"x="0""#), "horizontal");
+}
+
+#[tokio::test]
+async fn the_donut_block_shows_its_total_and_shares_that_add_up() {
+    let html = get("/blocks").await;
+    let chart = figure(&html, "Games by archetype this season");
+    let rows = table_rows(chart);
+    let total: f64 = rows.iter().map(|(_, value)| value).sum();
+    assert_eq!(parts(chart, "center"), 1);
+    let center = div_with(chart, r#"data-chart="center""#);
+    assert!(text(center).contains(&total.to_string()), "{center}");
+    assert_eq!(parts(chart, "legend-item"), rows.len());
+
+    let section = example_section(&html, "block_donut_total");
+    let shares = div_with(section, r#"data-slot="shares""#);
+    let percents: Vec<f64> = shares
+        .split("%</td>")
+        .map(|before| &before[before.rfind('>').map_or(0, |at| at + 1)..])
+        .filter_map(|cell| cell.parse().ok())
+        .collect();
+    assert_eq!(percents.len(), rows.len(), "{shares}");
+    let sum: f64 = percents.iter().sum();
+    assert!((sum - 100.0).abs() <= 0.05 * rows.len() as f64, "{sum}");
+    for (name, value) in &rows {
+        assert!(shares.contains(&format!(">{name}<")), "{name}");
+        assert!(shares.contains(&format!(">{value}<")), "{name}: {value}");
+    }
+}
+
+#[tokio::test]
+async fn the_multi_line_block_sums_up_its_data_in_the_footer() {
+    let html = get("/blocks").await;
+    let chart = figure(&html, "Win rate by deck over eight weeks");
+    assert_eq!(paths(chart, "line").len(), 3);
+    assert_eq!(parts(chart, "legend-item"), 3);
+    assert!(parts(chart, "dot") > 0);
+    assert!(paths(chart, "line")[0].contains('C'), "smooth");
+    let section = example_section(&html, "block_multi_line");
+    let footer = div_with(section, r#"data-slot="trend""#);
+    assert!(text(footer).contains("rose the most"), "{footer}");
+}
+
+#[tokio::test]
+async fn the_stat_cards_block_shows_four_numbers_over_a_chart() {
+    let html = get("/blocks").await;
+    let section = example_section(&html, "block_stat_cards");
+    assert_eq!(section.matches(r#"data-slot="stat""#).count(), 4);
+    assert!(section.contains("from last month"));
+    let chart = figure(section, "Games played per week, last 12 weeks");
+    assert_eq!(paths(chart, "area").len(), 1);
+    assert_eq!(table_rows(chart).len(), 12);
+}
