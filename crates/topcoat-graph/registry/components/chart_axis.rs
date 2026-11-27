@@ -127,7 +127,13 @@ pub async fn chart_category_axis(
     // A label may spread over the bands of the labels skipped after it.
     let room = 100.0 / bands.len().max(1) as f64 * every as f64;
     let shown: Vec<(String, Band)> = labels.into_iter().zip(bands).step_by(every).collect();
-    let widest = longest(shown.iter().map(|(label, _)| label.clone()));
+    // In a horizontal chart every label helps size the column: the label with the most
+    // characters is not always the widest on screen.
+    let sizers: Vec<String> = if vertical {
+        Vec::new()
+    } else {
+        shown.iter().map(|(label, _)| label.clone()).collect()
+    };
 
     Ok(view! {
         <div
@@ -135,8 +141,13 @@ pub async fn chart_category_axis(
             aria-hidden="true"
             class=(if vertical { "relative h-4" } else { "relative max-w-32" })
         >
-            if !vertical {
-                <span class="invisible block truncate leading-none">(widest)</span>
+            for sizer in sizers {
+                <span
+                    data-chart="label-size"
+                    class="invisible block h-0 truncate leading-none"
+                >
+                    (sizer)
+                </span>
             }
             for (label, band) in shown {
                 <span

@@ -928,12 +928,6 @@ async fn a_playground_renders_above_the_examples() {
     let slot = div_with(&html, r#"data-slot="playground""#);
     assert!(slot.contains(r#"data-test="playground""#), "{slot}");
     assert!(html[heading..examples].contains(">Playground</h2>"));
-    // Real pages have none yet.
-    for doc in catalog::COMPONENTS {
-        assert!(doc.playground.is_none());
-    }
-    let bar = get("/docs/bar_chart").await;
-    assert!(!bar.contains(r#"id="playground""#));
 }
 
 #[tokio::test]
@@ -1068,4 +1062,76 @@ async fn the_part_examples_draw_their_charts() {
     let tips = tooltips(custom);
     assert_eq!(tips[1].matches(r#"data-chart="tooltip-row""#).count(), 2);
     assert!(tips[1].contains(">+35<"), "{}", tips[1]);
+}
+
+#[tokio::test]
+async fn each_chart_page_opens_with_a_playground_of_its_chart() {
+    use crate::playground::{area, bar, line, pie};
+    for (path, label, pressed) in [
+        (
+            "/docs/bar_chart",
+            bar::LABEL,
+            ["2", "Grouped", "Vertical", "On"].as_slice(),
+        ),
+        (
+            "/docs/line_chart",
+            line::LABEL,
+            ["2", "Straight", "Off", "On"].as_slice(),
+        ),
+        (
+            "/docs/area_chart",
+            area::LABEL,
+            ["2", "Straight", "Off", "On"].as_slice(),
+        ),
+        ("/docs/pie_chart", pie::LABEL, ["3", "Pie", "On"].as_slice()),
+    ] {
+        let html = get(path).await;
+        let start = html
+            .find(r#"data-slot="playground""#)
+            .unwrap_or_else(|| panic!("{path}"));
+        let end = html.find(r#"id="examples""#).expect("the examples follow");
+        assert!(start < end, "{path}: the playground comes first");
+        let playground = &html[start..end];
+        // The chart, drawn with the default options.
+        let chart = figure(playground, label);
+        assert!(chart.contains("<table"), "{path}");
+        // The controls show the defaults as pressed, in order.
+        let now: Vec<&str> = playground
+            .split(r#"aria-pressed="true""#)
+            .skip(1)
+            .map(|rest| {
+                let text = &rest[tag_rest(rest).len() + 1..];
+                &text[..text.find('<').unwrap()]
+            })
+            .collect();
+        assert_eq!(now, pressed, "{path}");
+        // The code names the chart on screen.
+        assert!(playground.contains("code-panel"), "{path}");
+    }
+}
+
+#[tokio::test]
+async fn parts_have_no_playground() {
+    for path in [
+        "/docs/chart",
+        "/docs/chart_axis",
+        "/docs/chart_legend",
+        "/docs/chart_tooltip",
+    ] {
+        assert!(
+            !get(path).await.contains(r#"data-slot="playground""#),
+            "{path}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_horizontal_chart_sizes_its_label_column_by_every_label() {
+    // The longest label by character count is not always the widest on screen
+    // ("Week 1" against "Week 2"), so every label takes part in sizing the column.
+    let html = get("/docs/bar_chart").await;
+    let chart = figure(&html, "Cards by element");
+    assert_eq!(chart.matches(r#"data-chart="label-size""#).count(), 5);
+    let vertical = figure(&html, "Mana cost distribution");
+    assert_eq!(vertical.matches(r#"data-chart="label-size""#).count(), 0);
 }

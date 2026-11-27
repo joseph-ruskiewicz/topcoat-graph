@@ -45,7 +45,7 @@ hash = "sha256:4c2192af7e5aa2d980b35c91b83201fbf276a87bb87ecdab1d80721545b89a41"
 file = "src/components/chart.rs"
 
 [registries.topcoat-graph.components.chart_axis]
-hash = "sha256:b731ed545738eb9406fe575bb00deb6b0b6359d9630cb7498e5daabda5b9ea36"
+hash = "sha256:6fd4f48b498ed2da77f7b10a479ab858a3f96099c3daa77ea4b5c7c60994651c"
 file = "src/components/chart_axis.rs"
 
 [registries.topcoat-graph.components.chart_legend]

@@ -13,6 +13,7 @@ mod code;
 mod docs;
 mod examples;
 mod guides;
+mod playground;
 mod shell;
 
 #[cfg(test)]

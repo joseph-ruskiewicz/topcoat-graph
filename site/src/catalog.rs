@@ -77,6 +77,20 @@ macro_rules! registry_source {
     };
 }
 
+/// Declares the function that renders a chart's playground.
+macro_rules! playground {
+    ($name:ident, $module:ident) => {
+        fn $name(cx: &Cx) -> BoxView<'_> {
+            view! { crate::playground::$module::playground() }.boxed()
+        }
+    };
+}
+
+playground!(area_playground, area);
+playground!(bar_playground, bar);
+playground!(line_playground, line);
+playground!(pie_playground, pie);
+
 /// Every component, in sidebar order: the charts, then their parts, each alphabetical
 /// by title.
 pub static COMPONENTS: &[ComponentDoc] = &[
@@ -86,7 +100,7 @@ pub static COMPONENTS: &[ComponentDoc] = &[
         description: "Filled areas under one or more lines, overlapping or stacked.",
         group: Group::Chart,
         source: registry_source!("area_chart"),
-        playground: None,
+        playground: Some(area_playground),
         examples: &[
             example!(
                 area_chart_single_series,
@@ -126,7 +140,7 @@ pub static COMPONENTS: &[ComponentDoc] = &[
         description: "Bars, vertical or horizontal, with several series grouped or stacked.",
         group: Group::Chart,
         source: registry_source!("bar_chart"),
-        playground: None,
+        playground: Some(bar_playground),
         examples: &[
             example!(
                 bar_chart_single_series,
@@ -176,7 +190,7 @@ pub static COMPONENTS: &[ComponentDoc] = &[
         description: "One or more lines through a point per category, straight or smooth.",
         group: Group::Chart,
         source: registry_source!("line_chart"),
-        playground: None,
+        playground: Some(line_playground),
         examples: &[
             example!(
                 line_chart_single_series,
@@ -221,7 +235,7 @@ pub static COMPONENTS: &[ComponentDoc] = &[
         description: "A pie or a donut, one slice per value, with a tooltip on each slice.",
         group: Group::Chart,
         source: registry_source!("pie_chart"),
-        playground: None,
+        playground: Some(pie_playground),
         examples: &[
             example!(
                 pie_chart_pie,
