@@ -363,11 +363,38 @@ pub static GEOMETRY_EXAMPLE: Example = example!(
 
 /// The blocks on `/blocks`, in page order. To add one, put its file in `src/examples/`
 /// as `block_<name>.rs`, declare it in `examples.rs`, and append an entry here.
-pub static BLOCKS: &[Example] = &[example!(
-    block_mana_curve,
-    "Mana curve",
-    "A card with a heading and a single-series bar chart at a fixed height."
-)];
+pub static BLOCKS: &[Example] = &[
+    example!(
+        block_mana_curve,
+        "Mana curve",
+        "A card with a heading and a single-series bar chart at a fixed height."
+    ),
+    example!(
+        block_stat_cards,
+        "Stat cards over a chart",
+        "Four headline numbers, each with its change from last month, above the weekly trend of the first. The cards stack on narrow screens."
+    ),
+    example!(
+        block_interactive_range,
+        "Range and metric switcher",
+        "The buttons set signals that a `#[shard]` reads, so the server draws the chart again for the chosen range and metric."
+    ),
+    example!(
+        block_multi_line,
+        "Win rate by deck",
+        "Three smooth lines with dots and a legend, and a footer worked out from the data."
+    ),
+    example!(
+        block_donut_total,
+        "Donut with a total",
+        "The total sits in the hole, and a table beside the chart gives each slice's share."
+    ),
+    example!(
+        block_ranked_bars,
+        "Ranked list",
+        "A horizontal bar chart sorted from most to least. Long names are cut short on the axis and shown in full in the tooltip."
+    ),
+];
 
 /// The registry manifest, read for the parts each component needs.
 const REGISTRY: &str = include_str!("../../crates/topcoat-graph/registry/registry.toml");
