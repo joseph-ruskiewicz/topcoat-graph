@@ -4,7 +4,7 @@ use topcoat::{
     Result,
     context::Cx,
     runtime::{Event, shard, signal},
-    view::{View, attributes, view},
+    view::{View, attributes, component, view},
 };
 
 use super::{choice, control, source};
@@ -91,6 +91,32 @@ pub fn code(options: Options) -> String {
     )
 }
 
+/// The chart for `options`: what the playground draws and what [`code`] describes.
+#[component]
+pub async fn chart(cx: &Cx, options: Options) -> Result<impl View> {
+    let center = total(options.slices).to_string();
+    Ok(view! {
+        pie_chart(
+            label: LABEL,
+            category_header: "Type",
+            value_header: "Cards",
+            slices: TYPES
+                .iter()
+                .take(options.slices)
+                .map(|(name, value)| PieSlice::new(*name, *value))
+                .collect(),
+            donut: options.donut,
+            legend: options.legend,
+            if options.donut {
+                <span class="text-2xl font-semibold text-foreground tabular-nums">
+                    (center)
+                </span>
+                <span>"cards"</span>
+            }
+        )
+    })
+}
+
 /// The playground: a pie chart, its controls and its code.
 #[shard]
 pub async fn playground(cx: &Cx) -> Result<impl View> {
@@ -104,32 +130,10 @@ pub async fn playground(cx: &Cx) -> Result<impl View> {
         legend: legend.get(),
     };
     let source = code(options);
-    let center = total(options.slices).to_string();
 
     Ok(view! {
         <div class="flex w-full min-w-0 flex-col gap-3">
-            preview_panel(
-                pie_chart(
-                    label: LABEL,
-                    category_header: "Type",
-                    value_header: "Cards",
-                    slices: TYPES
-                        .iter()
-                        .take(options.slices)
-                        .map(|(name, value)| PieSlice::new(*name, *value))
-                        .collect(),
-                    donut: options.donut,
-                    legend: options.legend,
-                    if options.donut {
-                        <span
-                            class="text-2xl font-semibold text-foreground tabular-nums"
-                        >
-                            (center)
-                        </span>
-                        <span>"cards"</span>
-                    }
-                )
-            )
+            preview_panel(chart(options: options))
             <div
                 data-slot="controls"
                 class="flex flex-wrap items-center gap-x-5 gap-y-2"

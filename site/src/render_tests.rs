@@ -924,7 +924,11 @@ async fn a_playground_renders_above_the_examples() {
         .expect("a playground heading");
     let examples = html.find(r#"id="examples""#).unwrap();
     assert!(heading < examples);
-    assert!(html[heading..].starts_with(r#"id="playground""#));
+    let tag = html[..heading].rfind('<').unwrap();
+    assert!(
+        html[tag..].starts_with("<h2 "),
+        "the playground heading is an h2"
+    );
     let slot = div_with(&html, r#"data-slot="playground""#);
     assert!(slot.contains(r#"data-test="playground""#), "{slot}");
     assert!(html[heading..examples].contains(">Playground</h2>"));
@@ -1067,23 +1071,31 @@ async fn the_part_examples_draw_their_charts() {
 #[tokio::test]
 async fn each_chart_page_opens_with_a_playground_of_its_chart() {
     use crate::playground::{area, bar, line, pie};
-    for (path, label, pressed) in [
+    for (path, label, pressed, default_code) in [
         (
             "/docs/bar_chart",
             bar::LABEL,
             ["2", "Grouped", "Vertical", "On"].as_slice(),
+            bar::code(bar::Options::default()),
         ),
         (
             "/docs/line_chart",
             line::LABEL,
             ["2", "Straight", "Off", "On"].as_slice(),
+            line::code(line::Options::default()),
         ),
         (
             "/docs/area_chart",
             area::LABEL,
             ["2", "Straight", "Off", "On"].as_slice(),
+            area::code(area::Options::default()),
         ),
-        ("/docs/pie_chart", pie::LABEL, ["3", "Pie", "On"].as_slice()),
+        (
+            "/docs/pie_chart",
+            pie::LABEL,
+            ["3", "Pie", "On"].as_slice(),
+            pie::code(pie::Options::default()),
+        ),
     ] {
         let html = get(path).await;
         let start = html
@@ -1105,8 +1117,8 @@ async fn each_chart_page_opens_with_a_playground_of_its_chart() {
             })
             .collect();
         assert_eq!(now, pressed, "{path}");
-        // The code names the chart on screen.
-        assert!(playground.contains("code-panel"), "{path}");
+        // The code panel shows the code for the default options, and nothing else.
+        assert_eq!(code_blocks(playground), [default_code], "{path}");
     }
 }
 
@@ -1173,7 +1185,7 @@ async fn each_block_shows_its_title_and_a_named_chart() {
     for (id, title, label) in BLOCK_CHARTS {
         let section = example_section(&html, id);
         assert!(
-            section.contains(&format!(">{title}</h3>")),
+            section.contains(&format!(">{title}</h2>")),
             "{id}: no title"
         );
         figure(section, label);
@@ -1356,4 +1368,321 @@ async fn the_stat_cards_block_shows_four_numbers_over_a_chart() {
     let chart = figure(section, "Games played per week, last 12 weeks");
     assert_eq!(paths(chart, "area").len(), 1);
     assert_eq!(table_rows(chart).len(), 12);
+}
+
+// The site chrome: script-free reading, keyboard and screen-reader support.
+
+/// The opening tag, up to its `>`, of the first element whose tag contains `marker`.
+fn tag_with<'a>(html: &'a str, marker: &str) -> &'a str {
+    let at = html.find(marker).unwrap_or_else(|| panic!("no {marker}"));
+    let start = html[..at].rfind('<').unwrap();
+    tag_rest(&html[start..])
+}
+
+/// The value of the attribute `name` in the opening tag `tag`, as written.
+fn attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
+    let marker = format!(r#" {name}=""#);
+    let rest = &tag[tag.find(&marker)? + marker.len()..];
+    Some(&rest[..rest.find('"').unwrap()])
+}
+
+#[tokio::test]
+async fn every_tab_panel_shows_when_script_is_off() {
+    let html = get("/docs/bar_chart").await;
+    let head = &html[..html.find("</head>").unwrap()];
+    assert!(
+        head.contains("<style>[role=tabpanel][hidden]{display:block!important}</style></noscript>"),
+        "{head}"
+    );
+}
+
+#[tokio::test]
+async fn the_menu_closes_with_escape_or_a_backdrop_click_and_says_whether_it_is_open() {
+    let html = get("/docs/bar_chart").await;
+    let dialog = tag_with(&html, r#"aria-label="Menu""#);
+    let keydown = attr(dialog, "data-topcoat-on:keydown").expect("a keydown handler");
+    assert!(keydown.contains("Escape"), "{keydown}");
+    // A click on the dialog itself, outside its panel, is a click on the backdrop.
+    let click = attr(dialog, "data-topcoat-on:click").expect("a click handler");
+    assert!(click.contains("currentTarget"), "{click}");
+    let trigger = tag_with(&html, r#"aria-label="Open menu""#);
+    assert!(trigger.contains(r#" aria-expanded="false""#), "{trigger}");
+    assert!(
+        trigger.contains("data-topcoat-bind:aria-expanded="),
+        "{trigger}"
+    );
+}
+
+#[tokio::test]
+async fn tab_pairs_move_with_the_arrow_keys_and_keep_one_tab_stop() {
+    let html = get("/docs/bar_chart").await;
+    let section = example_section(&html, "bar_chart_grouped");
+    let tabs: Vec<&str> = section
+        .split(r#"role="tab""#)
+        .skip(1)
+        .map(tag_rest)
+        .collect();
+    assert_eq!(tabs.len(), 2);
+    assert!(tabs[0].contains(r#" tabindex="0""#), "{}", tabs[0]);
+    assert!(tabs[1].contains(r#" tabindex="-1""#), "{}", tabs[1]);
+    for tab in &tabs {
+        assert!(tab.contains("data-topcoat-bind:tabindex="), "{tab}");
+        let keydown = attr(tab, "data-topcoat-on:keydown").expect("a keydown handler");
+        assert!(
+            keydown.contains("ArrowLeft") && keydown.contains("ArrowRight"),
+            "{keydown}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn the_theme_button_is_named_by_its_visible_text() {
+    let html = get("/").await;
+    let aside = &html[html.find("<aside").unwrap()..html.find("</aside>").unwrap()];
+    let at = aside.find(">Dark mode").unwrap();
+    let tag = tag_rest(&aside[aside[..at].rfind("<button").unwrap()..]);
+    assert!(!tag.contains("aria-label"), "{tag}");
+}
+
+#[tokio::test]
+async fn sidebar_group_labels_use_the_full_muted_color() {
+    let html = get("/").await;
+    let aside = &html[html.find("<aside").unwrap()..html.find("</aside>").unwrap()];
+    assert!(aside.contains(">Get Started"));
+    assert!(!aside.contains("text-muted-foreground/80"));
+}
+
+#[tokio::test]
+async fn each_page_has_its_own_title() {
+    for page in catalog::pages() {
+        let html = get(&page.href).await;
+        let expected = if page.href == "/" {
+            "topcoat-graph".to_owned()
+        } else {
+            format!("{} · topcoat-graph", page.title)
+        };
+        assert!(
+            html.contains(&format!("<title>{expected}</title>")),
+            "{}: {}",
+            page.href,
+            &html[html.find("<title>").unwrap()..html.find("</title>").unwrap()]
+        );
+    }
+}
+
+/// The level and text of each heading in `html`, in order.
+fn headings(html: &str) -> Vec<(u8, String)> {
+    let mut out = Vec::new();
+    let mut rest = html;
+    while let Some(at) = rest.find("<h") {
+        rest = &rest[at + 2..];
+        let level = rest.as_bytes()[0];
+        let next = rest.as_bytes().get(1).copied();
+        if !(b'1'..=b'6').contains(&level) || !matches!(next, Some(b' ' | b'>')) {
+            continue;
+        }
+        let close = format!("</h{}>", level as char);
+        let body = &rest[tag_rest(rest).len() + 1..];
+        let body = &body[..body.find(&close).unwrap()];
+        out.push((level - b'0', text(body).trim().to_owned()));
+    }
+    out
+}
+
+#[tokio::test]
+async fn headings_never_skip_a_level() {
+    for page in catalog::pages() {
+        let html = get(&page.href).await;
+        let main = &html[html.find("<main").unwrap()..html.find("</main>").unwrap()];
+        let levels = headings(main);
+        assert_eq!(
+            levels.first().map(|heading| heading.0),
+            Some(1),
+            "{}",
+            page.href
+        );
+        for pair in levels.windows(2) {
+            assert!(
+                pair[1].0 <= pair[0].0 + 1,
+                "{}: {:?} then {:?}",
+                page.href,
+                pair[0],
+                pair[1]
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_guide_never_repeats_the_heading_above() {
+    for path in [
+        "/docs/introduction",
+        "/docs/installation",
+        "/docs/theming",
+        "/docs/geometry",
+    ] {
+        let html = get(path).await;
+        let main = &html[html.find("<main").unwrap()..html.find("</main>").unwrap()];
+        for pair in headings(main).windows(2) {
+            assert_ne!(pair[0].1, pair[1].1, "{path}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn the_cli_tab_says_the_crate_comes_first() {
+    for doc in catalog::COMPONENTS {
+        let html = get(&format!("/docs/{}", doc.name)).await;
+        let note = div_with(&html.replace("<p ", "<div "), r#"data-slot="needs-crate""#).to_owned();
+        assert!(
+            note.contains("has to be one of your dependencies first"),
+            "{}",
+            doc.name
+        );
+        assert!(
+            note.contains(r#"href="/docs/installation""#),
+            "{}",
+            doc.name
+        );
+    }
+}
+
+/// The text of each value-axis tick in `chart`.
+fn tick_texts(chart: &str) -> Vec<&str> {
+    chart
+        .split(r#"data-chart="tick""#)
+        .skip(1)
+        .map(|rest| {
+            let text = &rest[tag_rest(rest).len() + 1..];
+            text[..text.find('<').unwrap()].trim()
+        })
+        .collect()
+}
+
+/// How many different values the attribute `name` takes across the `<rect>`s of `chart`.
+fn distinct_rect(chart: &str, name: &str) -> usize {
+    let marker = format!(r#" {name}=""#);
+    let values: std::collections::BTreeSet<&str> = chart
+        .split("<rect")
+        .skip(1)
+        .map(|rest| {
+            let rest = &rest[rest.find(&marker).unwrap() + marker.len()..];
+            &rest[..rest.find('"').unwrap()]
+        })
+        .collect();
+    values.len()
+}
+
+#[tokio::test]
+async fn every_playground_setting_draws_what_its_code_says() {
+    use crate::playground::{area, bar, line, pie};
+    // A page only tests can reach, with every chart for every setting.
+    let html = get("/docs/test_combinations").await;
+    let combo = |id: &str| div_with(&html, &format!(r#"data-combo="{id}""#));
+    let series = |chart: &str| chart.matches(r#"<th scope="col""#).count() - 1;
+    let legend = |chart: &str| chart.contains(r#"data-chart="legend""#);
+    let smooth = |chart: &str| {
+        chart
+            .split(r#" d="M"#)
+            .skip(1)
+            .any(|d| d[..d.find('"').unwrap()].contains('C'))
+    };
+    let flags = [false, true];
+    let mut seen = 0;
+
+    for a in flags {
+        for b in flags {
+            for count in 2..=5 {
+                let options = pie::Options {
+                    slices: count,
+                    donut: a,
+                    legend: b,
+                };
+                let chart = combo(&format!("pie-{count}-{}{}", a as u8, b as u8));
+                let code = pie::code(options);
+                assert_eq!(chart.matches(r#"data-chart="slice""#).count(), count);
+                assert_eq!(code.matches("PieSlice::new").count(), count);
+                assert_eq!(chart.contains(r#"data-chart="center""#), a, "{options:?}");
+                assert_eq!(code.contains("donut: true"), a);
+                assert_eq!(legend(chart), b, "{options:?}");
+                assert_eq!(code.contains("legend: true"), b);
+                if a {
+                    let total = pie::total(count).to_string();
+                    assert!(chart.contains(&format!(">{total}<")) || chart.contains(&total));
+                    assert!(code.contains(&format!("\"{total}\"")));
+                }
+                seen += 1;
+            }
+            for c in flags {
+                for count in 1..=3 {
+                    let id = format!("{count}-{}{}{}", a as u8, b as u8, c as u8);
+
+                    let options = bar::Options {
+                        series: count,
+                        horizontal: a,
+                        stacked: b,
+                        legend: c,
+                    };
+                    let chart = combo(&format!("bar-{id}"));
+                    let code = bar::code(options);
+                    assert_eq!(series(chart), count, "{options:?}");
+                    assert_eq!(code.matches("ChartSeries::new").count(), count);
+                    assert_eq!(
+                        chart.contains(r#"data-chart="label-size""#),
+                        a,
+                        "{options:?}"
+                    );
+                    assert_eq!(code.contains("orientation: Orientation::Horizontal"), a);
+                    // Stacked bars share one position per category. Grouped bars each
+                    // have their own.
+                    let positions = distinct_rect(chart, if a { "y" } else { "x" });
+                    // A zero has no bar, so grouped charts are checked by "more than".
+                    assert_eq!(positions > 6, !b && count > 1, "{options:?}");
+                    assert_eq!(code.contains("mode: BarMode::Stacked"), b);
+                    assert_eq!(legend(chart), c, "{options:?}");
+                    assert_eq!(code.contains("legend: true"), c);
+
+                    let options = line::Options {
+                        series: count,
+                        smooth: a,
+                        dots: b,
+                        legend: c,
+                    };
+                    let chart = combo(&format!("line-{id}"));
+                    let code = line::code(options);
+                    assert_eq!(series(chart), count, "{options:?}");
+                    assert_eq!(code.matches("ChartSeries::new").count(), count);
+                    assert_eq!(smooth(chart), a, "{options:?}");
+                    assert_eq!(code.contains("curve: Curve::Smooth"), a);
+                    assert_eq!(chart.contains(r#"data-chart="dot""#), b, "{options:?}");
+                    assert_eq!(code.contains("dots: true"), b);
+                    assert_eq!(legend(chart), c, "{options:?}");
+                    assert_eq!(code.contains("legend: true"), c);
+
+                    let options = area::Options {
+                        series: count,
+                        smooth: a,
+                        stacked: b,
+                        legend: c,
+                    };
+                    let chart = combo(&format!("area-{id}"));
+                    let code = area::code(options);
+                    assert_eq!(series(chart), count, "{options:?}");
+                    assert_eq!(code.matches("ChartSeries::new").count(), count);
+                    assert_eq!(smooth(chart), a, "{options:?}");
+                    assert_eq!(code.contains("curve: Curve::Smooth"), a);
+                    // Stacking two or more series lifts the axis past the tallest
+                    // single value, 8, to 10.
+                    if count >= 2 {
+                        assert_eq!(tick_texts(chart).contains(&"10"), b, "{options:?}");
+                    }
+                    assert_eq!(code.contains("stacked: true"), b);
+                    assert_eq!(legend(chart), c, "{options:?}");
+                    assert_eq!(code.contains("legend: true"), c);
+                    seen += 3;
+                }
+            }
+        }
+    }
+    assert_eq!(seen, 88);
 }

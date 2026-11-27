@@ -176,7 +176,9 @@ categories adds 30 tab stops.
 
 Words a chart shows or announces all come from props, so an app can pass localized
 strings. Numbers are formatted by the components with a decimal point and no digit
-grouping. To change that, edit `category_tooltips` and `chart_table` in your copy.
+grouping. To change that in tooltips and the data table, edit `category_tooltips`,
+`chart_table` and the tooltip row in `pie_chart` in your copy. Axis tick labels come from
+the geometry crate, so your copy can't change them.
 
 ## Colors
 

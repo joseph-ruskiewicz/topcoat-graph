@@ -69,6 +69,7 @@ pub async fn shell(
                     type="button"
                     aria-label="Open menu"
                     aria-haspopup="dialog"
+                    :aria-expanded=$(if menu.get() { "true" } else { "false" })
                     @click=$(|_e: Event| menu.set(true))
                 },
                 icon(data: iconify_icon!("lucide:menu"))
@@ -77,7 +78,24 @@ pub async fn shell(
         </header>
         sheet(
             open: $(menu.get()),
-            attrs: attributes! { aria-label="Menu" },
+            attrs: attributes! {
+                aria-label="Menu"
+                @keydown=$(|_e: Event| {
+                    // Escape closes the menu, and so does a click on the backdrop: a click
+                    // that lands on the dialog itself, not on the panel inside it.
+                    if raw!("cx.hydrate(${_e}.inner.key === 'Escape')", false) {
+                        menu.set(false);
+                    }
+                })
+                @click=$(|_e: Event| {
+                    if raw!(
+                        "cx.hydrate(${_e}.inner.target === ${_e}.inner.currentTarget)",
+                        false,
+                    ) {
+                        menu.set(false);
+                    }
+                })
+            },
             sheet_content(
                 side: SheetSide::Left,
                 attrs: attributes! {
@@ -191,13 +209,6 @@ async fn sidebar_body(cx: &Cx, path: &str, dark: Signal<bool>) -> Result<impl Vi
             )
         </nav>
         <div class="border-t border-dashed border-border px-3 py-3">
-            let label = topcoat::runtime::expr!(
-                if dark.get() {
-                    "Switch to light theme"
-                } else {
-                    "Switch to dark theme"
-                },
-            );
             <button
                 type="button"
                 class=(NAV_LINK)
@@ -206,7 +217,6 @@ async fn sidebar_body(cx: &Cx, path: &str, dark: Signal<bool>) -> Result<impl Vi
                     dark.toggle();
                     save_theme(dark.get()).await;
                 })
-                :aria-label=(label)
             >
                 <span class="contents" :hidden=$(!dark.get())>
                     icon(data: iconify_icon!("lucide:sun"))
@@ -237,7 +247,7 @@ async fn component_links(cx: &Cx, path: &str, group: Group) -> Result<impl View>
 async fn nav_group(cx: &Cx, label: &str, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <div class="flex flex-col">
-            <span class="px-2 pb-1.5 text-sm font-medium text-muted-foreground/80">
+            <span class="px-2 pb-1.5 text-sm font-medium text-muted-foreground">
                 (label)
             </span>
             <ul class="flex flex-col gap-0.5">(child)</ul>
@@ -414,7 +424,17 @@ pub async fn tab_pair(
                     aria-controls=(&first_panel)
                     class=(TAB)
                     :aria-selected=$(if showing_second.get() { "false" } else { "true" })
+                    :tabindex=$(if showing_second.get() { "-1" } else { "0" })
                     @click=$(|_e: Event| showing_second.set(false))
+                    @keydown=$(|_e: Event| {
+                        // An arrow key moves to the other tab and shows its panel.
+                        if raw!(
+                            "cx.hydrate((k => (k === 'ArrowLeft' || k === 'ArrowRight') && (${_e}.inner.currentTarget.parentElement.querySelector('[aria-selected=\\\"false\\\"]').focus(), true))(${_e}.inner.key))",
+                            false,
+                        ) {
+                            showing_second.toggle();
+                        }
+                    })
                 >
                     (first)
                 </button>
@@ -425,7 +445,17 @@ pub async fn tab_pair(
                     aria-controls=(&second_panel_id)
                     class=(TAB)
                     :aria-selected=$(if showing_second.get() { "true" } else { "false" })
+                    :tabindex=$(if showing_second.get() { "0" } else { "-1" })
                     @click=$(|_e: Event| showing_second.set(true))
+                    @keydown=$(|_e: Event| {
+                        // An arrow key moves to the other tab and shows its panel.
+                        if raw!(
+                            "cx.hydrate((k => (k === 'ArrowLeft' || k === 'ArrowRight') && (${_e}.inner.currentTarget.parentElement.querySelector('[aria-selected=\\\"false\\\"]').focus(), true))(${_e}.inner.key))",
+                            false,
+                        ) {
+                            showing_second.toggle();
+                        }
+                    })
                 >
                     (second)
                 </button>
@@ -467,7 +497,12 @@ pub async fn example_section(
             data-example=(example.id)
             class="flex min-w-0 scroll-mt-20 flex-col gap-2.5 not-first:mt-10"
         >
-            <h3 class="text-base font-medium">(example.title)</h3>
+            // A block sits right under the page title. An example sits under a section.
+            if wide {
+                <h2 class="text-base font-medium">(example.title)</h2>
+            } else {
+                <h3 class="text-base font-medium">(example.title)</h3>
+            }
             if !example.description.is_empty() {
                 <p class="text-sm leading-relaxed text-muted-foreground">
                     (inline_code(example.description))
@@ -539,7 +574,9 @@ pub async fn install_section(cx: &Cx, doc: &'static ComponentDoc) -> Result<impl
                         </li>
                         if !parts.is_empty() {
                             <li class="space-y-3 pl-1" data-slot="parts">
-                                <p>"Install the parts it uses, the same way:"</p>
+                                <p>
+                                    "Copy in the parts it uses too, each from its own page:"
+                                </p>
                                 <ul class="flex flex-wrap gap-2">
                                     for name in &parts {
                                         let href = format!("/docs/{name}");
@@ -573,6 +610,15 @@ pub async fn install_section(cx: &Cx, doc: &'static ComponentDoc) -> Result<impl
             ),
             <div class="flex flex-col gap-3">
                 command(text: &add)
+                <p class="text-sm text-muted-foreground" data-slot="needs-crate">
+                    "The topcoat-graph crate has to be one of your dependencies first. See "
+                    link(
+                        href: "/docs/installation",
+                        attrs: attributes! { class="underline underline-offset-4" },
+                        "Installation"
+                    )
+                    "."
+                </p>
                 if !parts_list.is_empty() {
                     <p class="text-sm text-muted-foreground">
                         "This also installs the parts it uses: "
@@ -676,8 +722,17 @@ pub async fn item_entry(cx: &Cx, item: api::Item) -> Result<impl View> {
                     <table class="w-full text-left text-sm">
                         <thead class="bg-foreground/[0.03]">
                             <tr class="border-b border-border">
-                                <th scope="col" class="h-10 px-4 font-medium">"Field"</th>
-                                <th scope="col" class="h-10 px-4 font-medium">"Type"</th>
+                                if item.signature.starts_with("pub enum ") {
+                                    <th scope="col" class="h-10 px-4 font-medium">
+                                        "Variant"
+                                    </th>
+                                    <th scope="col" class="h-10 px-4 font-medium">
+                                        <span class="sr-only">"Default"</span>
+                                    </th>
+                                } else {
+                                    <th scope="col" class="h-10 px-4 font-medium">"Field"</th>
+                                    <th scope="col" class="h-10 px-4 font-medium">"Type"</th>
+                                }
                                 <th scope="col" class="h-10 px-4 font-medium">
                                     "Description"
                                 </th>

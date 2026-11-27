@@ -245,7 +245,7 @@ pub static COMPONENTS: &[ComponentDoc] = &[
             example!(
                 pie_chart_small_slice,
                 "A very small slice",
-                "A slice too thin to see still has its share in the legend, the tooltip and the data table."
+                "A slice too thin to see still has a legend entry, its value in the data table and its share in the tooltip."
             ),
             example!(
                 pie_chart_donut,
@@ -358,12 +358,12 @@ pub static HOME_EXAMPLE: Example = example!(line_chart_several_series, "Line cha
 pub static THEMING_EXAMPLES: &[Example] = &[
     example!(
         theming_series_color,
-        "A color per series",
+        "Series colors in use",
         "`.color(...)` takes any CSS color. Theme tokens such as `var(--primary)` follow light and dark mode."
     ),
     example!(
         theming_sizes,
-        "Sizes",
+        "Sizes in use",
         "Classes in `attrs` change a chart's shape. `aspect-auto h-40` gives a fixed height; `max-w-32` makes a pie smaller."
     ),
 ];
@@ -525,15 +525,100 @@ pub(crate) mod tests {
 
     /// Pages that only tests can reach, at `/docs/<name>`: a component with a playground,
     /// so the page's playground slot is covered before any real chart has one.
-    pub static TEST_COMPONENTS: &[ComponentDoc] = &[ComponentDoc {
-        name: "test_playground",
-        title: "Test Playground",
-        description: "A test page.",
-        group: Group::Part,
-        source: registry_source!("chart_legend"),
-        playground: Some(test_playground),
-        examples: &[example!(chart_legend_basic, "An example")],
-    }];
+    /// Every playground chart for every setting of its controls, each in a
+    /// `data-combo` wrapper named by `kind-count-flags`, where a flag is `1` or `0`.
+    fn test_combinations(cx: &Cx) -> BoxView<'_> {
+        use crate::playground::{area, bar, line, pie};
+        let flags = [false, true];
+        let mut bars = Vec::new();
+        let mut lines = Vec::new();
+        let mut areas = Vec::new();
+        let mut pies = Vec::new();
+        for a in flags {
+            for b in flags {
+                for count in 2..=5 {
+                    let options = pie::Options {
+                        slices: count,
+                        donut: a,
+                        legend: b,
+                    };
+                    pies.push((format!("pie-{count}-{}{}", a as u8, b as u8), options));
+                }
+                for c in flags {
+                    for count in 1..=3 {
+                        let id = format!("{count}-{}{}{}", a as u8, b as u8, c as u8);
+                        bars.push((
+                            format!("bar-{id}"),
+                            bar::Options {
+                                series: count,
+                                horizontal: a,
+                                stacked: b,
+                                legend: c,
+                            },
+                        ));
+                        lines.push((
+                            format!("line-{id}"),
+                            line::Options {
+                                series: count,
+                                smooth: a,
+                                dots: b,
+                                legend: c,
+                            },
+                        ));
+                        areas.push((
+                            format!("area-{id}"),
+                            area::Options {
+                                series: count,
+                                smooth: a,
+                                stacked: b,
+                                legend: c,
+                            },
+                        ));
+                    }
+                }
+            }
+        }
+        view! {
+            #[key(id.clone())]
+            for (id, options) in bars {
+                <div data-combo=(id)>bar::chart(options: options)</div>
+            }
+            #[key(id.clone())]
+            for (id, options) in lines {
+                <div data-combo=(id)>line::chart(options: options)</div>
+            }
+            #[key(id.clone())]
+            for (id, options) in areas {
+                <div data-combo=(id)>area::chart(options: options)</div>
+            }
+            #[key(id.clone())]
+            for (id, options) in pies {
+                <div data-combo=(id)>pie::chart(options: options)</div>
+            }
+        }
+        .boxed()
+    }
+
+    pub static TEST_COMPONENTS: &[ComponentDoc] = &[
+        ComponentDoc {
+            name: "test_playground",
+            title: "Test Playground",
+            description: "A test page.",
+            group: Group::Part,
+            source: registry_source!("chart_legend"),
+            playground: Some(test_playground),
+            examples: &[example!(chart_legend_basic, "An example")],
+        },
+        ComponentDoc {
+            name: "test_combinations",
+            title: "Test Combinations",
+            description: "A test page.",
+            group: Group::Part,
+            source: registry_source!("chart_legend"),
+            playground: Some(test_combinations),
+            examples: &[example!(chart_legend_basic, "An example")],
+        },
+    ];
 
     #[test]
     fn every_registry_component_has_a_page_with_an_example() {

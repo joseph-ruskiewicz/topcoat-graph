@@ -4,7 +4,7 @@ use topcoat::{
     Result,
     context::Cx,
     runtime::{Event, shard, signal},
-    view::{View, attributes, view},
+    view::{View, attributes, component, view},
 };
 use topcoat_graph::{BarMode, Orientation};
 
@@ -64,6 +64,27 @@ pub fn code(options: Options) -> String {
     source(&graph, "bar_chart", &[&uses[0], &uses[1]], &props, &[])
 }
 
+/// The chart for `options`: what the playground draws and what [`code`] describes.
+#[component]
+pub async fn chart(cx: &Cx, options: Options) -> Result<impl View> {
+    Ok(view! {
+        bar_chart(
+            label: LABEL,
+            category_header: "Week",
+            categories: labels(WEEKS),
+            series: game_series(options.series),
+            orientation: if options.horizontal {
+                Orientation::Horizontal
+            } else {
+                Orientation::Vertical
+            },
+            mode: if options.stacked { BarMode::Stacked } else { BarMode::Grouped },
+            integer_ticks: true,
+            legend: options.legend
+        )
+    })
+}
+
 /// The playground: a bar chart, its controls and its code.
 #[shard]
 pub async fn playground(cx: &Cx) -> Result<impl View> {
@@ -82,26 +103,7 @@ pub async fn playground(cx: &Cx) -> Result<impl View> {
 
     Ok(view! {
         <div class="flex w-full min-w-0 flex-col gap-3">
-            preview_panel(
-                bar_chart(
-                    label: LABEL,
-                    category_header: "Week",
-                    categories: labels(WEEKS),
-                    series: game_series(options.series),
-                    orientation: if options.horizontal {
-                        Orientation::Horizontal
-                    } else {
-                        Orientation::Vertical
-                    },
-                    mode: if options.stacked {
-                        BarMode::Stacked
-                    } else {
-                        BarMode::Grouped
-                    },
-                    integer_ticks: true,
-                    legend: options.legend
-                )
-            )
+            preview_panel(chart(options: options))
             <div
                 data-slot="controls"
                 class="flex flex-wrap items-center gap-x-5 gap-y-2"

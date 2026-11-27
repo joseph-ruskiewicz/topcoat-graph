@@ -215,6 +215,38 @@ pub fn items(source: &str) -> Vec<Item> {
             in_impl = rest.strip_suffix(" {").map(str::to_owned);
         } else if line == "}" {
             in_impl = None;
+        } else if let Some(rest) = line.strip_prefix("pub enum ") {
+            // An enum's variants are listed like fields. The type cell marks the default.
+            let name = rest.trim_end_matches(" {").to_owned();
+            let mut fields = Vec::new();
+            let mut variant_docs = Vec::new();
+            let mut default = false;
+            i += 1;
+            while i < lines.len() && lines[i] != "}" {
+                let variant = lines[i].trim();
+                if let Some(doc) = variant.strip_prefix("///") {
+                    variant_docs.push(doc.strip_prefix(' ').unwrap_or(doc));
+                } else if variant == "#[default]" {
+                    default = true;
+                } else if !variant.is_empty() && !variant.starts_with("#[") {
+                    let end = variant.find([',', ' ', '(', '{']).unwrap_or(variant.len());
+                    fields.push(Field {
+                        name: variant[..end].to_owned(),
+                        ty: String::from(if default { "default" } else { "" }),
+                        description: first_paragraph(&variant_docs),
+                    });
+                    variant_docs.clear();
+                    default = false;
+                }
+                i += 1;
+            }
+            items.push(Item {
+                signature: format!("pub enum {name}"),
+                name,
+                description: first_paragraph(&docs),
+                fields,
+                methods: Vec::new(),
+            });
         } else if let Some(rest) = line.strip_prefix("pub struct ") {
             let name = rest.trim_end_matches(" {").trim_end_matches(';').to_owned();
             let mut fields = Vec::new();
@@ -426,9 +458,9 @@ async fn private_helper(cx: &Cx) {}
     fn reads_structs_helpers_and_constants() {
         let items = items(SOURCE);
         let names: Vec<&str> = items.iter().map(|item| item.name.as_str()).collect();
-        assert_eq!(names, ["Point", "labels", "long", "COLORS"]);
+        assert_eq!(names, ["Variant", "Point", "labels", "long", "COLORS"]);
         assert_eq!(
-            items[0],
+            items[1],
             Item {
                 name: "Point".to_owned(),
                 signature: "pub struct Point".to_owned(),
@@ -447,12 +479,12 @@ async fn private_helper(cx: &Cx) {}
                 }],
             }
         );
-        assert_eq!(items[1].description, "Labels from strings: `labels`.");
+        assert_eq!(items[2].description, "Labels from strings: `labels`.");
         assert_eq!(
-            items[2].signature,
+            items[3].signature,
             "pub fn long(\n    a: &[String],\n    b: Orientation,\n) -> Vec<u8>"
         );
-        assert_eq!(items[3].signature, "pub const COLORS: StaticClass");
+        assert_eq!(items[4].signature, "pub const COLORS: StaticClass");
     }
 
     #[test]
@@ -537,6 +569,153 @@ async fn private_helper(cx: &Cx) {}
         assert_eq!(
             names,
             ["TooltipRow", "CategoryTooltip", "category_tooltips"]
+        );
+    }
+
+    #[test]
+    fn reads_an_enum_with_its_variants_and_marks_the_default() {
+        let source = "/// Which way.\n#[derive(Default)]\npub enum Way {\n    /// Going up.\n    #[default]\n    Up,\n    /// Going right.\n    Right,\n}\n";
+        let items = items(source);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].signature, "pub enum Way");
+        assert_eq!(items[0].description, "Which way.");
+        let variants: Vec<(&str, &str, &str)> = items[0]
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.ty.as_str(),
+                    field.description.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            variants,
+            [
+                ("Up", "default", "Going up."),
+                ("Right", "", "Going right.")
+            ]
+        );
+    }
+
+    /// Every source the site reads API tables from.
+    fn sources() -> Vec<(&'static str, &'static str)> {
+        let mut sources: Vec<(&str, &str)> = crate::catalog::COMPONENTS
+            .iter()
+            .map(|doc| (doc.name, doc.source))
+            .collect();
+        sources.push((
+            "layout",
+            include_str!("../../crates/topcoat-graph/src/layout.rs"),
+        ));
+        sources.push(("pie", include_str!("../../crates/topcoat-graph/src/pie.rs")));
+        sources.push((
+            "path",
+            include_str!("../../crates/topcoat-graph/src/path.rs"),
+        ));
+        sources
+    }
+
+    #[test]
+    fn no_source_has_a_shape_the_reader_cannot_parse() {
+        for (name, source) in sources() {
+            for line in source.lines() {
+                let line = line.trim_end();
+                assert!(
+                    !(line.starts_with("pub struct ")
+                        && (line.ends_with(';') || line.contains('('))),
+                    "{name}: a unit or tuple struct: {line}"
+                );
+                assert!(
+                    !line.trim_start().starts_with("pub const fn "),
+                    "{name}: {line}"
+                );
+                assert!(
+                    !(line.starts_with("pub async fn ") && line.contains('<')),
+                    "{name}: a generic component: {line}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_component_parameter_becomes_a_prop() {
+        // Counted without the reader: parameter lines between `pub async fn name(` and
+        // the closing `) ->`, leaving out docs, attributes and `cx`.
+        let mut checked = 0;
+        for (name, source) in sources() {
+            let lines: Vec<&str> = source.lines().collect();
+            for (at, line) in lines.iter().enumerate() {
+                let Some(function) = line
+                    .strip_prefix("pub async fn ")
+                    .and_then(|rest| rest.strip_suffix('('))
+                else {
+                    continue;
+                };
+                if at == 0 || lines[at - 1].trim() != "#[component]" {
+                    continue;
+                }
+                let end = (at..lines.len())
+                    .find(|&i| lines[i].starts_with(") ->"))
+                    .unwrap();
+                let mut count = 0;
+                for line in &lines[at + 1..end] {
+                    let line = line.trim();
+                    if line.starts_with("///") || line.starts_with("//") {
+                        continue;
+                    }
+                    // An attribute may share the line with its parameter.
+                    let line = match line.rfind("] ") {
+                        Some(i) if line.starts_with("#[") => &line[i + 2..],
+                        _ if line.starts_with("#[") => continue,
+                        _ => line,
+                    };
+                    assert!(
+                        line.contains(": ") && line.ends_with(','),
+                        "{name}::{function}: a parameter the count cannot read: {line}"
+                    );
+                    if line != "cx: &Cx," {
+                        count += 1;
+                    }
+                }
+                let read = functions(source)
+                    .into_iter()
+                    .find(|f| f.name == function)
+                    .unwrap_or_else(|| panic!("{name}::{function} was not read"));
+                assert_eq!(read.props.len(), count, "{name}::{function}");
+                checked += 1;
+            }
+        }
+        assert!(checked >= 12, "only {checked} components checked");
+    }
+
+    #[test]
+    fn bar_chart_props_are_read_in_full() {
+        let source = crate::catalog::component("bar_chart").unwrap().source;
+        let bar = functions(source)
+            .into_iter()
+            .find(|f| f.name == "bar_chart")
+            .unwrap();
+        let props: Vec<(&str, &str)> = bar
+            .props
+            .iter()
+            .map(|prop| (prop.name.as_str(), prop.default.as_deref().unwrap_or("")))
+            .collect();
+        assert_eq!(
+            props,
+            [
+                ("label", ""),
+                ("category_header", ""),
+                ("categories", ""),
+                ("series", ""),
+                ("orientation", "Orientation::Vertical"),
+                ("mode", "BarMode::Grouped"),
+                ("integer_ticks", "false"),
+                ("label_every", "1"),
+                ("legend", "false"),
+                ("attrs", ""),
+            ]
         );
     }
 }

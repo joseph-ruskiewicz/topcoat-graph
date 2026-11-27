@@ -2,3 +2,5 @@ target
 .git
 .claude
 .DS_Store
+.superpowers/
+.claude/

@@ -98,8 +98,8 @@ pub async fn introduction(cx: &Cx) -> Result<impl View> {
                 </li>
                 <li>
                     "Its data is also in a visually hidden table, so the numbers are there \
-                     without sight or hover. The drawing and the axis labels are hidden \
-                     from screen readers."
+                     without sight or hover. Bars, lines and axis labels are hidden from \
+                     screen readers. Pie slices are named and take focus."
                 </li>
                 <li>
                     "Each category, or each pie slice, has a named hover target that \
@@ -109,11 +109,15 @@ pub async fn introduction(cx: &Cx) -> Result<impl View> {
                 <li>
                     "Every word a chart shows or announces comes from a prop, so you can \
                      pass localized strings. Numbers are written with a decimal point and \
-                     no digit grouping; to change that, edit "
+                     no digit grouping. To change that in tooltips and the data table, \
+                     edit "
                     <code>"category_tooltips"</code>
-                    " and "
+                    ", "
                     <code>"chart_table"</code>
-                    " in your copy."
+                    " and the tooltip row in "
+                    <code>"pie_chart"</code>
+                    " in your copy. Axis tick labels come from the geometry crate, so \
+                     your copy can't change them."
                 </li>
             </ul>
             <h2>"What's here"</h2>
@@ -346,7 +350,7 @@ pub async fn installation(cx: &Cx) -> Result<impl View> {
                 <code>"--overwrite"</code>
                 " replaces only the components you name, so name them all or use "
                 <code>"--all"</code>
-                ". It also replaces any changes you made to them; commit first and \
+                ". It also replaces any changes you made to them. Commit first and \
                  reapply your changes from the diff."
             </p>
         )
@@ -490,12 +494,19 @@ for slice in pie_layout(&games, &options) {
 /// The geometry crate's sources whose types the Geometry page lists.
 const LAYOUT_SOURCE: &str = include_str!("../../crates/topcoat-graph/src/layout.rs");
 const PIE_SOURCE: &str = include_str!("../../crates/topcoat-graph/src/pie.rs");
+const PATH_SOURCE: &str = include_str!("../../crates/topcoat-graph/src/path.rs");
 
 #[component]
 pub async fn geometry(cx: &Cx) -> Result<impl View> {
     let items: Vec<api::Item> = api::items(LAYOUT_SOURCE)
         .into_iter()
         .chain(api::items(PIE_SOURCE))
+        // From the paths, only `Curve` belongs here: the layouts take it as an option.
+        .chain(
+            api::items(PATH_SOURCE)
+                .into_iter()
+                .filter(|item| item.name == "Curve"),
+        )
         .collect();
 
     Ok(view! {
@@ -598,7 +609,7 @@ pub async fn geometry(cx: &Cx) -> Result<impl View> {
                 <code>"Linear"</code>
                 " or "
                 <code>"Smooth"</code>
-                "; the first of each is the default."
+                ". The first of each is the default."
             </p>
         )
         <div class="mt-8 flex flex-col gap-8">

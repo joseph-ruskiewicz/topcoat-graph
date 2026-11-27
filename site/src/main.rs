@@ -63,6 +63,11 @@ async fn layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     let saved = shell::dark_from_cookie(cx);
     let dark = signal(cx, || saved);
     let path = uri(cx).path().to_owned();
+    // Each page is named in its tab; the home page is the site's name alone.
+    let title = match catalog::pages().into_iter().find(|page| page.href == path) {
+        Some(page) if page.href != "/" => format!("{} · topcoat-graph", page.title),
+        _ => String::from("topcoat-graph"),
+    };
 
     Ok(view! {
         <!DOCTYPE html>
@@ -78,7 +83,7 @@ async fn layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>"topcoat-graph"</title>
+                <title>(title)</title>
                 <meta
                     name="description"
                     content="Bar, line, area and pie charts for Topcoat apps, drawn on the server."
@@ -87,6 +92,10 @@ async fn layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 topcoat::runtime::script()
                 topcoat::font::link(font: fontsource_font!(GEIST, host: Asset))
                 <link rel="stylesheet" href=(tailwind::stylesheet!())>
+                // Tabs switch with the runtime. Without script, show every panel.
+                <noscript>
+                    <style>"[role=tabpanel][hidden]{display:block!important}"</style>
+                </noscript>
             </head>
             // The body's colors and font come from the theme's base layer.
             <body class="antialiased">
