@@ -16,12 +16,11 @@ no dependencies, and fixes to it arrive with `cargo update`.
 ## Install
 
 Your app needs Topcoat's `ui` and `tailwind` features and a theme from `topcoat ui init`.
-The `runtime` feature, which tooltips use, is on by default. The crate is not on crates.io
-yet, so add it from GitHub:
+The `runtime` feature, which tooltips use, is on by default. Add the crate:
 
 ```sh
 cargo add topcoat --features ui,tailwind
-cargo add topcoat-graph --git https://github.com/joseph-ruskiewicz/topcoat-graph
+cargo add topcoat-graph
 topcoat ui init --theme neutral
 topcoat ui add bar_chart --registry topcoat-graph
 ```

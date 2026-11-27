@@ -568,9 +568,7 @@ pub async fn install_section(cx: &Cx, doc: &'static ComponentDoc) -> Result<impl
                                 <code class=(INLINE_CODE)>"topcoat-graph"</code>
                                 " crate, which has the geometry the component calls:"
                             </p>
-                            command(
-                                text: "cargo add topcoat-graph --git https://github.com/joseph-ruskiewicz/topcoat-graph"
-                            )
+                            command(text: "cargo add topcoat-graph")
                         </li>
                         if !parts.is_empty() {
                             <li class="space-y-3 pl-1" data-slot="parts">

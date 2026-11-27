@@ -161,7 +161,7 @@ pub async fn introduction(cx: &Cx) -> Result<impl View> {
 /// shows each of them too.
 pub const INSTALL_COMMANDS: &[&str] = &[
     "cargo add topcoat --features ui,tailwind",
-    "cargo add topcoat-graph --git https://github.com/joseph-ruskiewicz/topcoat-graph",
+    "cargo add topcoat-graph",
     "topcoat ui init --theme neutral",
     "topcoat ui add bar_chart --registry topcoat-graph",
     "topcoat ui add --all --registry topcoat-graph",
@@ -252,9 +252,7 @@ pub async fn installation(cx: &Cx) -> Result<impl View> {
                 " feature, which tooltips use, is on by default."
             </p>
             command(text: topcoat)
-            <p>
-                "Then add topcoat-graph. It isn't on crates.io yet, so add it from GitHub:"
-            </p>
+            <p>"Then add topcoat-graph:"</p>
             command(text: graph)
             <p>
                 <code>"topcoat ui"</code>
