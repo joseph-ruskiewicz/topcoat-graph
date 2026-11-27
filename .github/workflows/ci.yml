@@ -63,8 +63,8 @@ jobs:
         working-directory: crates/topcoat-graph
         run: topcoat fmt --check
 
-      # site/build.rs downloads Tailwind; the script retries only when that build
-      # script fails (see the script for why).
+      # site/build.rs downloads Tailwind and the Lucide icons; the script retries only
+      # when that build script fails (see the script for why).
       - name: cargo build
         run: .github/scripts/cargo-retry.sh cargo build --workspace
       - name: cargo clippy

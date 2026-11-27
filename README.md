@@ -246,9 +246,11 @@ chart still gets an axis. `xy_layout` does the same for line and area charts and
 - `crates/topcoat-graph/src` is the geometry crate.
 - `crates/topcoat-graph/registry` holds the component sources and `registry.toml`. No crate
   compiles them here.
-- `site` is a gallery that installs every component. It is their compile and test check.
+- `site` is the docs site. It installs every component, so it is also their compile and
+  test check. `site/src/catalog.rs` lists each page's examples, which are files in
+  `site/src/examples/`.
 
-Run the gallery:
+Run the site:
 
 ```sh
 cd site

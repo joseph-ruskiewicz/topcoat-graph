@@ -1617,9 +1617,13 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "124c92b7fa7e06a430287be4bb3c47b9b5edfc5d9307b684e785f9b7d7e41577"
 dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
  "topcoat-core",
  "topcoat-view",
  "topcoat-view-macro",
+ "ureq",
 ]
 
 [[package]]

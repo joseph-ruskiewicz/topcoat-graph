@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Runs a cargo command, and runs it again (up to 3 times) only when site/build.rs failed.
 #
-# The build script downloads Tailwind from GitHub releases. On this runner Topcoat does
-# not find its shared download cache, so each build script run downloads again, and a
-# passing 5xx from GitHub fails the step. Any other failure, such as a lint or a test,
-# fails at once.
+# The build script downloads Tailwind (GitHub releases) and the Lucide icons (jsDelivr).
+# On this runner Topcoat does not find its shared download cache, so each build script
+# run downloads again, and a passing 5xx from either host fails the step. Any other
+# failure, such as a lint or a test, fails at once.
 set -uo pipefail
 
 log=$(mktemp)
