@@ -5,4 +5,11 @@ fn main() {
         .input("styles.css")
         .render()
         .unwrap();
+
+    // Stage the Lucide icon set for the `iconify_icon!` references in the site's
+    // pages and in the built-in components it installs.
+    topcoat::icon::iconify::BuildConfig::new()
+        .icon_set("lucide")
+        .stage()
+        .unwrap();
 }

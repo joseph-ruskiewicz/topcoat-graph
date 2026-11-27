@@ -8,6 +8,30 @@ registry = "topcoat"
 hash = "sha256:5e370e648fef95d78c8b048d99be7f7d79fd82132f8c9cc1ce854d3b73024137"
 file = "styles.css"
 
+[registries.topcoat.components.button]
+hash = "sha256:53bddb06a7db178a09d1e9395c1edb5e055b5f50107e8d4708ca029ecc1593af"
+file = "src/components/button.rs"
+
+[registries.topcoat.components.card]
+hash = "sha256:e08d76f7aef2db99246f144b904419db5aacd5712af8112b611f11454203b621"
+file = "src/components/card.rs"
+
+[registries.topcoat.components.dialog]
+hash = "sha256:bbcce6b5cd511ed60d1de887f90b099c01aaa3c9c38fa87bfa6337614a737c32"
+file = "src/components/dialog.rs"
+
+[registries.topcoat.components.floating]
+hash = "sha256:66636f7861a3eb370ee736de1a40aff889ec15e491d7aae57b64ad05e25d5cdd"
+file = "src/components/floating.rs"
+
+[registries.topcoat.components.sheet]
+hash = "sha256:4b0b2d15a788678e00f531579c15bf103270e3b337d1aa8a3e0a3d2c9cdf1d8f"
+file = "src/components/sheet.rs"
+
+[registries.topcoat.components.tooltip]
+hash = "sha256:b9b2c2790d5cd0499ea6b3f33aeaf08c132be21bc67f35035e17ed6776db76d3"
+file = "src/components/tooltip.rs"
+
 [registries.topcoat-graph.components.area_chart]
 hash = "sha256:81cdf2cabf6dfd7078fd637b059800ad2e46c75c2a86dd02fe9ee5a8416915ba"
 file = "src/components/area_chart.rs"

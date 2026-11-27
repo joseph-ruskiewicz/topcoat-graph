@@ -1,8 +1,14 @@
 pub mod area_chart;
 pub mod bar_chart;
+pub mod button;
+pub mod card;
 pub mod chart;
 pub mod chart_axis;
 pub mod chart_legend;
 pub mod chart_tooltip;
+pub mod dialog;
+pub mod floating;
 pub mod line_chart;
 pub mod pie_chart;
+pub mod sheet;
+pub mod tooltip;

@@ -1,7 +1,10 @@
 //! Checks that the site installs every topcoat-graph component and that each installed
 //! file is byte-for-byte the registry source. After changing a component in
-//! `crates/topcoat-graph`, run `topcoat ui add <name> --registry topcoat-graph --overwrite`
-//! in `site`.
+//! `crates/topcoat-graph/registry`, run `./scripts/sync-site.sh`.
+//!
+//! The site also installs a few built-in Topcoat components for its own pages (button,
+//! card, sheet, tooltip and what they need). Those come from the `topcoat` registry and
+//! are checked separately: they only have to be current, not complete.
 
 use std::path::Path;
 
@@ -86,4 +89,39 @@ fn components_are_up_to_date() {
             ),
         }
     }
+}
+
+#[test]
+fn built_in_components_are_up_to_date() {
+    let package = Package::locate(Some(String::from("site"))).expect("the site is a package");
+    let listings = list(&package, Some("topcoat")).expect("the built-in registry can be listed");
+    let statuses = listings
+        .into_iter()
+        .next()
+        .expect("listing the built-in registry yields it")
+        .outcome
+        .expect("the built-in registry loads");
+
+    let mut installed = Vec::new();
+    for status in statuses {
+        let name = status.name;
+        match status.status {
+            InstallStatus::UpToDate { .. } => installed.push(name),
+            // The site installs only what its pages use.
+            InstallStatus::Available { .. } => {}
+            InstallStatus::Update { .. } => panic!(
+                "the built-in `{name}` has an update available; \
+                 run `topcoat ui add {name} --overwrite` in site"
+            ),
+            InstallStatus::Orphaned { .. } => panic!(
+                "the site has the built-in `{name}` installed, which Topcoat no longer offers"
+            ),
+        }
+    }
+    installed.sort();
+    assert_eq!(
+        installed,
+        ["button", "card", "dialog", "floating", "sheet", "tooltip"],
+        "the built-in components the site uses"
+    );
 }

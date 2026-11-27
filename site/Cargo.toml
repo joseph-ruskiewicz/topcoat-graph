@@ -1,6 +1,6 @@
 [package]
 name = "site"
-description = "The topcoat-graph gallery, built with Topcoat and the topcoat-graph components."
+description = "The topcoat-graph docs site, built with Topcoat and the topcoat-graph components."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,10 +12,10 @@ tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
 # The component registry and the chart geometry the components call. `topcoat ui` only
 # offers registries that are direct dependencies.
 topcoat-graph = { path = "../crates/topcoat-graph" }
-topcoat = { version = "0.12.1", features = ["tailwind", "ui"] }
+topcoat = { version = "0.12.1", features = ["font-fontsource", "icon-iconify", "tailwind", "ui"] }
 
 [build-dependencies]
-topcoat = { version = "0.12.1", default-features = false, features = ["tailwind"] }
+topcoat = { version = "0.12.1", default-features = false, features = ["icon-iconify", "tailwind"] }
 
 [dev-dependencies]
 topcoat-ui = "0.12.1"

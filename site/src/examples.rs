@@ -1,0 +1,42 @@
+//! The examples the docs pages render and show. Each file is one example; see
+//! `catalog.rs` for where they appear.
+
+pub mod area_chart_missing_values;
+pub mod area_chart_no_data;
+pub mod area_chart_several_series;
+pub mod area_chart_single_series;
+pub mod area_chart_smooth;
+pub mod area_chart_stacked;
+pub mod bar_chart_grouped;
+pub mod bar_chart_horizontal;
+pub mod bar_chart_many_categories;
+pub mod bar_chart_missing_values;
+pub mod bar_chart_negative_values;
+pub mod bar_chart_no_data;
+pub mod bar_chart_single_series;
+pub mod bar_chart_stacked;
+pub mod block_mana_curve;
+pub mod chart_axis_horizontal;
+pub mod chart_axis_lollipop;
+pub mod chart_legend_basic;
+pub mod chart_legend_shared;
+pub mod chart_shares;
+pub mod chart_sparkline;
+pub mod chart_tooltip_custom_rows;
+pub mod chart_tooltip_sparkline;
+pub mod geometry_svg;
+pub mod line_chart_dots;
+pub mod line_chart_missing_values;
+pub mod line_chart_no_data;
+pub mod line_chart_several_series;
+pub mod line_chart_single_series;
+pub mod line_chart_small_values;
+pub mod line_chart_smooth;
+pub mod pie_chart_donut;
+pub mod pie_chart_no_data;
+pub mod pie_chart_pie;
+pub mod pie_chart_single_slice;
+pub mod pie_chart_small_slice;
+pub mod pie_chart_zero_value;
+pub mod theming_series_color;
+pub mod theming_sizes;
